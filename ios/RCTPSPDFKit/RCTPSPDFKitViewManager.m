@@ -31,8 +31,13 @@ RCT_CUSTOM_VIEW_PROPERTY(document, pdfController.document, RCTPSPDFKitView) {
     if (view.annotationAuthorName) {
       view.pdfController.document.defaultAnnotationUsername = view.annotationAuthorName;
     }
+    
     // Default toolbar with search and annotation button.
-    [view.pdfController.navigationItem setRightBarButtonItems:@[view.pdfController.searchButtonItem, view.pdfController.annotationButtonItem] animated:NO];
+    [view.pdfController.navigationItem setRightBarButtonItems:@[
+        view.pdfController.annotationButtonItem,
+        view.pdfController.searchButtonItem,
+      ]
+      animated:NO];
   }
 }
 
