@@ -27,6 +27,8 @@ RCT_CUSTOM_VIEW_PROPERTY(document, PSPDFDocument, RCTPSPDFKitView) {
   if (json) {
     view.pdfController.document = [RCTConvert PSPDFDocument:json];
     view.pdfController.document.delegate = (id<PSPDFDocumentDelegate>)view;
+    // Set title nil to remove it from the toolbar.
+    view.pdfController.title = nil;
 
     // The author name may be set before the document exists. We set it again here when the document exists.
     if (view.annotationAuthorName) {
