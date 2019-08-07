@@ -75,6 +75,12 @@ RCT_CUSTOM_VIEW_PROPERTY(rightBarButtonItems, NSArray<UIBarButtonItem *>, RCTPSP
   }
 }
 
+RCT_CUSTOM_VIEW_PROPERTY(toolbarTitle, NSString, RCTPSPDFKitView) {
+  if (json) {
+    view.pdfController.title = json;
+  }
+}
+
 RCT_EXPORT_VIEW_PROPERTY(hideNavigationBar, BOOL)
 
 RCT_EXPORT_VIEW_PROPERTY(disableDefaultActionForTappedAnnotations, BOOL)
@@ -130,11 +136,12 @@ RCT_EXPORT_METHOD(exitCurrentlyActiveMode:(nonnull NSNumber *)reactTag resolver:
 RCT_EXPORT_METHOD(saveCurrentDocument:(nonnull NSNumber *)reactTag resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
     RCTPSPDFKitView *component = (RCTPSPDFKitView *)[self.bridge.uiManager viewForReactTag:reactTag];
-    BOOL success = [component saveCurrentDocument];
+    NSError *error;
+    BOOL success = [component saveCurrentDocumentWithError:&error];
     if (success) {
       resolve(@(success));
     } else {
-      reject(@"error", @"Failed to save document.", nil);
+      reject(@"error", @"Failed to save document.", error);
     }
   });
 }
@@ -142,11 +149,12 @@ RCT_EXPORT_METHOD(saveCurrentDocument:(nonnull NSNumber *)reactTag resolver:(RCT
 RCT_REMAP_METHOD(getAnnotations, getAnnotations:(nonnull NSNumber *)pageIndex type:(NSString *)type reactTag:(nonnull NSNumber *)reactTag resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
     RCTPSPDFKitView *component = (RCTPSPDFKitView *)[self.bridge.uiManager viewForReactTag:reactTag];
-    NSDictionary *annotations = [component getAnnotations:(PSPDFPageIndex)pageIndex.integerValue type:[RCTConvert annotationTypeFromInstantJSONType:type]];
+    NSError *error;
+    NSDictionary *annotations = [component getAnnotations:(PSPDFPageIndex)pageIndex.integerValue type:[RCTConvert annotationTypeFromInstantJSONType:type] error:&error];
     if (annotations) {
       resolve(annotations);
     } else {
-      reject(@"error", @"Failed to get annotations.", nil);
+      reject(@"error", @"Failed to get annotations.", error);
     }
   });
 }
@@ -154,11 +162,12 @@ RCT_REMAP_METHOD(getAnnotations, getAnnotations:(nonnull NSNumber *)pageIndex ty
 RCT_EXPORT_METHOD(addAnnotation:(id)jsonAnnotation reactTag:(nonnull NSNumber *)reactTag resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
     RCTPSPDFKitView *component = (RCTPSPDFKitView *)[self.bridge.uiManager viewForReactTag:reactTag];
-    BOOL success = [component addAnnotation:jsonAnnotation];
+    NSError *error;
+    BOOL success = [component addAnnotation:jsonAnnotation error:&error];
     if (success) {
       resolve(@(success));
     } else {
-      reject(@"error", @"Failed to add annotation.", nil);
+      reject(@"error", @"Failed to add annotation.", error);
     }
   });
 }
@@ -178,11 +187,12 @@ RCT_EXPORT_METHOD(removeAnnotation:(id)jsonAnnotation reactTag:(nonnull NSNumber
 RCT_EXPORT_METHOD(getAllUnsavedAnnotations:(nonnull NSNumber *)reactTag resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
     RCTPSPDFKitView *component = (RCTPSPDFKitView *)[self.bridge.uiManager viewForReactTag:reactTag];
-    NSDictionary *annotations = [component getAllUnsavedAnnotations];
+    NSError *error;
+    NSDictionary *annotations = [component getAllUnsavedAnnotationsWithError:&error];
     if (annotations) {
       resolve(annotations);
     } else {
-      reject(@"error", @"Failed to get annotations.", nil);
+      reject(@"error", @"Failed to get annotations.", error);
     }
   });
 }
@@ -190,11 +200,12 @@ RCT_EXPORT_METHOD(getAllUnsavedAnnotations:(nonnull NSNumber *)reactTag resolver
 RCT_EXPORT_METHOD(addAnnotations:(id)jsonAnnotations reactTag:(nonnull NSNumber *)reactTag resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
     RCTPSPDFKitView *component = (RCTPSPDFKitView *)[self.bridge.uiManager viewForReactTag:reactTag];
-    BOOL success = [component addAnnotations:jsonAnnotations];
+    NSError *error;
+    BOOL success = [component addAnnotations:jsonAnnotations error:&error];
     if (success) {
       resolve(@(success));
     } else {
-      reject(@"error", @"Failed to add annotations.", nil);
+      reject(@"error", @"Failed to add annotations.", error);
     }
   });
 }
