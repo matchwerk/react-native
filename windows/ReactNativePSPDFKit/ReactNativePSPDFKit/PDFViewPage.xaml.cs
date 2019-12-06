@@ -14,8 +14,8 @@ using System.Threading.Tasks;
 using Windows.Data.Json;
 using PSPDFKit.UI;
 using Windows.Storage;
-using Windows.UI.Popups;
 using Windows.UI.Xaml.Controls;
+using PSPDFKit.Pdf;
 using PSPDFKit.Pdf.Annotation;
 using ReactNative.UIManager;
 using ReactNativePSPDFKit.Events;
@@ -24,22 +24,18 @@ namespace ReactNativePSPDFKit
 {
     public sealed partial class PDFViewPage : Page
     {
-        private StorageFile _fileToOpen;
-        private bool _pdfViewInitialised = false;
-        public readonly PdfView Pdfview;
+        private bool _pdfViewInitialized = false;
+        public readonly PdfView PdfView;
+        private string _annotationCreatorName = null;
 
         public PDFViewPage()
         {
             InitializeComponent();
-            Pdfview = PDFView;
+            PdfView = PDFView;
 
             PDFView.OnSuspendUnloading += (sender, args) =>
             {
-                // Reset the displated document.
-                // This is a work aronud to ensure that if the user navigates away from
-                // the Page and then back, a document will still be shown.
-                _fileToOpen = null;
-
+                _pdfViewInitialized = false;
                 args.Complete();
             };
 
@@ -52,38 +48,15 @@ namespace ReactNativePSPDFKit
         }
 
         /// <summary>
-        /// Only set the document to show if there is no document staged yet.
-        /// </summary>
-        /// <param name="file"></param>
-        /// <returns></returns>
-        internal async Task SetDefaultDocument(StorageFile file)
-        {
-            if (_fileToOpen != null) return;
-
-            await OpenFileAsync(file);
-        }
-
-        /// <summary>
-        /// Take the file and call the conroller to open the document.
+        /// Take the file and call the controller to open the document.
         /// </summary>
         /// <param name="file">File to open.</param>
         internal async Task OpenFileAsync(StorageFile file)
         {
-            _fileToOpen = file;
-
-            // If the PdfView is already initialised we can show the new document.
-            if (_pdfViewInitialised)
+            // If the PdfView is already initialized we can show the new document.
+            if (_pdfViewInitialized)
             {
-                try
-                {
-                    await PDFView.OpenStorageFileAsync(file);
-                }
-                catch (Exception e)
-                {
-                    // Show a dialog with the exception message.
-                    var dialog = new MessageDialog(e.Message);
-                    await dialog.ShowAsync();
-                }
+                await PDFView.OpenStorageFileAsync(file);
             }
         }
 
@@ -92,11 +65,14 @@ namespace ReactNativePSPDFKit
             await RunOperationAndFireEvent(requestId,
                 async () =>
                 {
-                    // Get the StorageFile
-                    if (_fileToOpen != null)
+                    var file = PDFView.Document.DocumentSource.GetFile();
+                    if (file != null)
                     {
-                        // Save it.
-                        await PDFView.Document.ExportAsync(_fileToOpen);
+                        await PDFView.Document.ExportAsync(file);
+                    }
+                    else
+                    {
+                        throw new NotImplementedException("Only currently opened storage file saving is supported.");
                     }
                 }
             );
@@ -106,7 +82,25 @@ namespace ReactNativePSPDFKit
         {
             try
             {
-                var annotations = await Pdfview.Document.GetAnnotationsAsync(pageIndex);
+                var annotations = await PdfView.Document.GetAnnotationsAsync(pageIndex);
+
+                this.GetReactContext().GetNativeModule<UIManagerModule>().EventDispatcher.DispatchEvent(
+                    new PdfViewDataReturnedEvent(this.GetTag(), requestId, annotations)
+                );
+            }
+            catch (Exception e)
+            {
+                this.GetReactContext().GetNativeModule<UIManagerModule>().EventDispatcher.DispatchEvent(
+                    new PdfViewDataReturnedEvent(this.GetTag(), requestId, e.Message)
+                );
+            }
+        }
+
+        internal async Task GetAllAnnotations(int requestId)
+        {
+            try
+            {
+                var annotations = await PdfView.Document.GetAnnotationsAsync();
 
                 this.GetReactContext().GetNativeModule<UIManagerModule>().EventDispatcher.DispatchEvent(
                     new PdfViewDataReturnedEvent(this.GetTag(), requestId, annotations)
@@ -124,7 +118,7 @@ namespace ReactNativePSPDFKit
         {
             try
             {
-                var toolbarItems = Pdfview.Controller.GetToolbarItems();
+                var toolbarItems = PdfView.Controller.GetToolbarItems();
 
                 this.GetReactContext().GetNativeModule<UIManagerModule>().EventDispatcher.DispatchEvent(
                     new PdfViewDataReturnedEvent(this.GetTag(), requestId, toolbarItems)
@@ -145,7 +139,7 @@ namespace ReactNativePSPDFKit
                 {
                     var toolbarItems =
                         PSPDFKit.UI.ToolbarComponents.Factory.FromJsonArray(JsonArray.Parse(toolbarItemsJson));
-                    await Pdfview.Controller.SetToolbarItemsAsync(toolbarItems.ToList());
+                    await PdfView.Controller.SetToolbarItemsAsync(toolbarItems.ToList());
                 }
             );
         }
@@ -155,7 +149,7 @@ namespace ReactNativePSPDFKit
             await RunOperationAndFireEvent(requestId,
                 async () =>
                 {
-                    await Pdfview.Document.CreateAnnotationAsync(
+                    await PdfView.Document.CreateAnnotationAsync(
                         Factory.FromJson(JsonObject.Parse(annotationJsonString)));
                 }
             );
@@ -167,7 +161,7 @@ namespace ReactNativePSPDFKit
                 async () =>
                 {
                     var annotation = Factory.FromJson(JsonObject.Parse(annotationJsonString));
-                    await Pdfview.Document.DeleteAnnotationAsync(annotation.Id);
+                    await PdfView.Document.DeleteAnnotationAsync(annotation.Id);
                 }
             );
         }
@@ -175,7 +169,7 @@ namespace ReactNativePSPDFKit
         internal async Task SetInteractionMode(int requestId, InteractionMode interactionMode)
         {
             await RunOperationAndFireEvent(requestId,
-                async () => { await Pdfview.Controller.SetInteractionModeAsync(interactionMode); }
+                async () => { await PdfView.Controller.SetInteractionModeAsync(interactionMode); }
             );
         }
 
@@ -207,19 +201,37 @@ namespace ReactNativePSPDFKit
             PDFView.ShowToolbar = showToolbar;
         }
 
-        private async void PDFView_InitializationCompletedHandlerAsync(PdfView sender, PSPDFKit.Pdf.Document document)
+        public void SetAnnotationCreatorName(string annotationAuthorName)
         {
-            // If we already have a file to open lets proceed with that here.
-            if (_fileToOpen != null)
-            {
-                await PDFView.OpenStorageFileAsync(_fileToOpen);
-            }
-
-            _pdfViewInitialised = true;
+            _annotationCreatorName = annotationAuthorName;
         }
 
-        private void DocumentOnAnnotationsCreated(object sender, IList<IAnnotation> annotations)
+        public void SetReadOnly(bool readOnly)
         {
+            PdfView.ReadOnly = readOnly;
+        }
+
+        private void PDFView_InitializationCompletedHandlerAsync(PdfView sender, Document document)
+        {
+            _pdfViewInitialized = true;
+        }
+
+        private async void DocumentOnAnnotationsCreated(Document document, IList<IAnnotation> annotations)
+        {
+            // If we have an author name set, we want to add this.
+            if (_annotationCreatorName != null)
+            {
+                foreach (var annotation in annotations)
+                {
+                    // If the create name is populated then it probably was created else where. 
+                    if (annotation.CreatorName == null)
+                    {
+                        annotation.CreatorName = _annotationCreatorName;
+                        await document.UpdateAnnotationAsync(annotation);
+                    }
+                }
+            }
+
             this.GetReactContext().GetNativeModule<UIManagerModule>().EventDispatcher.DispatchEvent(
                 new PdfViewAnnotationChangedEvent(this.GetTag(),
                     PdfViewAnnotationChangedEvent.EVENT_TYPE_ADDED, annotations)

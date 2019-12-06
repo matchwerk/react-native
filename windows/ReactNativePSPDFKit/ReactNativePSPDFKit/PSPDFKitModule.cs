@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
 using Windows.Storage;
+using Newtonsoft.Json.Linq;
 
 namespace ReactNativePSPDFKit
 {
@@ -56,7 +57,7 @@ namespace ReactNativePSPDFKit
         /// 
         /// </summary>
         [ReactMethod]
-        public void Present(string assetPath, IPromise promise)
+        public void Present(string assetPath, JObject configuration, IPromise promise)
         {
             DispatcherHelpers.RunOnDispatcher(async () =>
             {
@@ -65,6 +66,15 @@ namespace ReactNativePSPDFKit
                     var file = await StorageFile.GetFileFromPathAsync(assetPath);
 
                     await LoadFileAsync(file);
+
+                    if (_viewManager != null)
+                    {
+                        _viewManager.SetConfiguration(_viewManager.PdfViewPage, configuration);
+                    }
+                    else
+                    {
+                        throw new Exception("PDFViewManager: is not ready or unavailable.");
+                    }
 
                     promise.Resolve(null);
                 }
@@ -97,14 +107,14 @@ namespace ReactNativePSPDFKit
         /// <param name="file">File to open</param>
         private async Task LoadFileAsync(StorageFile file)
         {
-            if (file == null) return;
-            if(_viewManager.PdfViewPage != null)
+            if (file == null) throw new Exception("File cannot be null");
+            if(_viewManager != null)
             {
-                await _viewManager.PdfViewPage.OpenFileAsync(file);
+                await _viewManager.OpenFileAsync(file);
             }
             else
             {
-                throw new Exception("PdfViewPage: is not ready or unavailable.");
+                throw new Exception("PDFViewManager: is not ready or unavailable.");
             }
         }
 

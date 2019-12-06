@@ -8,6 +8,7 @@
 //
 
 using System;
+using System.Threading.Tasks;
 using ReactNative.UIManager;
 using ReactNative.UIManager.Annotations;
 using Windows.Storage;
@@ -19,7 +20,7 @@ namespace ReactNativePSPDFKit
 {
     public class PSPDFKitViewManger : SimpleViewManager<PDFViewPage>
     {
-
+        /// Command to enumeration mapping.
         private const int COMMAND_ENTER_ANNOTATION_CREATION_MODE = 1;
         private const int COMMAND_EXIT_CURRENTLY_ACTIVE_MODE = 2;
         private const int COMMAND_SAVE_CURRENT_DOCUMENT = 3;
@@ -28,9 +29,14 @@ namespace ReactNativePSPDFKit
         private const int COMMAND_GET_TOOLBAR_ITEMS = 6;
         private const int COMMAND_SET_TOOLBAR_ITEMS = 7;
         private const int COMMAND_REMOVE_ANNOTATION = 8;
+        private const int COMMAND_GET_ALL_ANNOTATIONS = 9;
+
+        /// View configuration string constants
+        private const string CONFIGURATION_ENABLE_ANNOTATION_EDITING = "enableAnnotationEditing";
 
         private readonly Uri _cssResource = null;
         internal PDFViewPage PdfViewPage;
+        private StorageFile _fileToOpen = null;
 
         public PSPDFKitViewManger(Uri cssResource)
         {
@@ -42,8 +48,18 @@ namespace ReactNativePSPDFKit
             PdfViewPage = new PDFViewPage();
             if(_cssResource != null)
             {
-                PdfViewPage.Pdfview.Css = _cssResource;
+                PdfViewPage.PdfView.Css = _cssResource;
             }
+
+            PdfViewPage.PdfView.InitializationCompletedHandler += async (pdfView, document) =>
+            {
+                // If we already have a file to open lets proceed with that here.
+                if (_fileToOpen != null)
+                {
+                    await pdfView.OpenStorageFileAsync(_fileToOpen);
+                }
+            };
+
             return PdfViewPage;
         }
 
@@ -55,8 +71,10 @@ namespace ReactNativePSPDFKit
         [ReactProp("document")]
         public async void SetDocumentAsync(PDFViewPage view, string document)
         {
-            var storagefile = await StorageFile.GetFileFromApplicationUriAsync(new Uri(document));
-            await view.SetDefaultDocument(storagefile);
+            if (_fileToOpen != null) return; // If present has been called we have a document staged to be opened. Just ignore the default document.
+
+            _fileToOpen = await StorageFile.GetFileFromApplicationUriAsync(new Uri(document));
+            await view.OpenFileAsync(_fileToOpen);
         }
 
         [ReactProp("pageIndex")]
@@ -69,6 +87,37 @@ namespace ReactNativePSPDFKit
         public void SetHideNavigationBar(PDFViewPage view, bool hideNavigationBar)
         {
             view.SetShowToolbar(!hideNavigationBar);
+        }
+
+        [ReactProp("annotationAuthorName")]
+        public void SetAnnotationAuthorName(PDFViewPage view, string annotationAuthorName)
+        {
+            view.SetAnnotationCreatorName(annotationAuthorName);
+        }
+
+        [ReactProp("configuration")]
+        public void SetConfiguration(PDFViewPage view, JObject configuration)
+        {
+            if (configuration.TryGetValue(CONFIGURATION_ENABLE_ANNOTATION_EDITING, out var enableAnnotationEditingJson))
+            {
+                var enableAnnotationEditing = enableAnnotationEditingJson.Value<bool>();
+                view.SetReadOnly(!enableAnnotationEditing);
+            }
+        }
+
+        /// <summary>
+        /// Take the file and call the controller to open the document.
+        /// </summary>
+        /// <param name="file">File to open.</param>
+        internal async Task OpenFileAsync(StorageFile file)
+        {
+            _fileToOpen = file;
+
+            // If the PdfView is already initialized we can show the new document.
+            if (PdfViewPage != null)
+            {
+                await PdfViewPage.OpenFileAsync(file);
+            }
         }
 
         public override JObject ViewCommandsMap => new JObject
@@ -84,6 +133,9 @@ namespace ReactNativePSPDFKit
             },
             {
                 "getAnnotations", COMMAND_GET_ANNOTATIONS
+            },
+            {
+                "getAllAnnotations", COMMAND_GET_ALL_ANNOTATIONS
             },
             {
                 "addAnnotation", COMMAND_ADD_ANNOTATION
@@ -114,6 +166,9 @@ namespace ReactNativePSPDFKit
                     break;
                 case COMMAND_GET_ANNOTATIONS:
                     await view.GetAnnotations(args[0].Value<int>(), args[1].Value<int>());
+                    break;
+                case COMMAND_GET_ALL_ANNOTATIONS:
+                    await view.GetAllAnnotations(args[0].Value<int>());
                     break;
                 case COMMAND_ADD_ANNOTATION:
                     await view.CreateAnnotation(args[0].Value<int>(), args[1].ToString());

@@ -31,6 +31,10 @@ YellowBox.ignoreWarnings([
   "Warning: Failed prop type: Invalid prop `accessibilityStates[0]`"
 ]);
 
+const CONFIGURATION = {
+  // Settings this to false will disable all annotation editing
+  enableAnnotationEditing: true
+};
 
 const complexSearchConfiguration = {
   searchString: "the",
@@ -101,7 +105,7 @@ const examples = [
       // Present can only take files loaded in the Visual studio Project's Assets. Please use RNFS.
       // See https://docs.microsoft.com/en-us/windows/uwp/files/file-access-permissions
       const path = RNFS.MainBundlePath + "\\Assets\\pdf\\Business Report.pdf";
-      PSPDFKit.Present(path)
+      PSPDFKit.Present(path, {})
         .then(() => {
           alert("File Opened successfully");
         })
@@ -167,6 +171,14 @@ const examples = [
   },
   {
     key: "item8",
+    name: "Disable Annotation Editing",
+    description: "An example to show how to globally disable annotation editing.",
+    action: async component => {
+      component.props.navigation.navigate("PdfViewDisableAnnotationEditing");
+    }
+  },
+  {
+    key: "item9",
     name: "Custom colors",
     description: "Explains how to theme your UWP react native application.",
     action: component => {
@@ -379,6 +391,7 @@ class PdfViewInstantJsonScreen extends Component<{}> {
           style={styles.pdfView}
           // The default file to open.
           document="ms-appx:///Assets/pdf/annualReport.pdf"
+          annotationAuthorName="Joe Smith"
         />
         <View
           style={{
@@ -396,7 +409,18 @@ class PdfViewInstantJsonScreen extends Component<{}> {
                   alert(JSON.stringify(annotations));
                 });
               }}
-              title="Get Annotations"
+              title="Get Annotations Page 1"
+            />
+          </View>
+          <View style={{marginLeft: 10}}>
+            <Button
+              onPress={() => {
+                // This gets all annotations on the document.¬
+                this.refs.pdfView.getAllAnnotations().then(annotations => {
+                  alert(JSON.stringify(annotations));
+                });
+              }}
+              title="Get All Annotations"
             />
           </View>
           <View style={{marginLeft: 10}}>
@@ -473,6 +497,39 @@ class PdfViewToolbarCustomizationScreen extends Component<{}> {
   }
 }
 
+class PdfViewDisableAnnotationEditingScreen extends Component<{}> {
+  render() {
+    return (
+      <View style={styles.page}>
+        <PSPDFKitView
+          ref="pdfView"
+          style={styles.pdfView}
+          // The default file to open.
+          document="ms-appx:///Assets/pdf/annualReport.pdf"
+          configuration={{enableAnnotationEditing: false}}
+        />
+        <View style={styles.footer}>
+          <View style={styles.buttonRow}>
+            <View style={styles.button}>
+              <Button onPress={() => {
+                const path = RNFS.MainBundlePath + "\\Assets\\pdf\\Business Report.pdf";
+                PSPDFKit.Present(path, CONFIGURATION);
+              }} title="Reload and Enable Editing"/>
+            </View>
+          </View>
+          <Image
+            source={require("./assets/logo-flat.png")}
+            style={styles.logo}
+          />
+          <Text style={styles.version}>
+            SDK Version : {PSPDFKit.versionString}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+}
+
 class PdfViewStyleScreen extends Component<{}> {
   render() {
     return (
@@ -521,6 +578,9 @@ export default StackNavigator(
     },
     PdfViewToolbarCustomization: {
       screen: PdfViewToolbarCustomizationScreen
+    },
+    PdfViewDisableAnnotationEditing: {
+      screen: PdfViewDisableAnnotationEditingScreen
     },
     PdfViewStyle: {
       screen: PdfViewStyleScreen
