@@ -14,11 +14,15 @@
 package com.pspdfkit.react;
 
 import android.content.Context;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import android.util.Log;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.ReadableMapKeySetIterator;
+import com.pspdfkit.annotations.AnnotationType;
 import com.pspdfkit.configuration.activity.PdfActivityConfiguration;
 import com.pspdfkit.configuration.activity.ThumbnailBarMode;
 import com.pspdfkit.configuration.activity.UserInterfaceViewMode;
@@ -26,8 +30,19 @@ import com.pspdfkit.configuration.page.PageFitMode;
 import com.pspdfkit.configuration.page.PageLayoutMode;
 import com.pspdfkit.configuration.page.PageScrollDirection;
 import com.pspdfkit.configuration.page.PageScrollMode;
+import com.pspdfkit.configuration.sharing.ShareFeatures;
+
+import java.util.EnumSet;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 
 public class ConfigurationAdapter {
+
+    private static final String LOG_TAG = "ConfigurationAdapter";
+
     private static final String PAGE_SCROLL_DIRECTION = "pageScrollDirection";
     private static final String PAGE_SCROLL_DIRECTION_HORIZONTAL = "horizontal";
     private static final String PAGE_SCROLL_DIRECTION_VERTICAL = "vertical";
@@ -44,6 +59,8 @@ public class ConfigurationAdapter {
     private static final String SHOW_THUMBNAIL_BAR = "showThumbnailBar";
     private static final String SHOW_THUMBNAIL_BAR_DEFAULT = "default";
     private static final String SHOW_THUMBNAIL_BAR_SCROLLABLE = "scrollable";
+    private static final String SHOW_THUMBNAIL_BAR_FLOATING = "floating";
+    private static final String SHOW_THUMBNAIL_BAR_PINNED = "pinned";
     private static final String SHOW_THUMBNAIL_BAR_NONE = "none";
     private static final String SHOW_THUMBNAIL_GRID_ACTION = "showThumbnailGridAction";
     private static final String SHOW_OUTLINE_ACTION = "showOutlineAction";
@@ -64,6 +81,9 @@ public class ConfigurationAdapter {
     private static final String PAGE_MODE_DOUBLE = "double";
     private static final String PAGE_MODE_AUTO = "automatic";
     private static final String FIRST_PAGE_ALWAYS_SINGLE = "firstPageAlwaysSingle";
+    private static final String AUTOSAVE_DISABLED = "disableAutomaticSaving";
+    private static final String ANNOTATION_EDITING_ENABLED = "enableAnnotationEditing";
+    private static final String EDITABLE_ANNOTATION_TYPES = "editableAnnotationTypes";
 
     private final PdfActivityConfiguration.Builder configuration;
 
@@ -145,6 +165,15 @@ public class ConfigurationAdapter {
             if (configuration.hasKey(FIRST_PAGE_ALWAYS_SINGLE)) {
                 configureFirstPageAlwaysSingle(configuration.getBoolean(FIRST_PAGE_ALWAYS_SINGLE));
             }
+            if (configuration.hasKey(AUTOSAVE_DISABLED)) {
+                configureAutosaveEnabled(!configuration.getBoolean(AUTOSAVE_DISABLED));
+            }
+            if (configuration.hasKey(ANNOTATION_EDITING_ENABLED)) {
+                configureAnnotationEditingEnabled(configuration.getBoolean(ANNOTATION_EDITING_ENABLED));
+            }
+            if (configuration.hasKey(EDITABLE_ANNOTATION_TYPES)) {
+                configureEditableAnnotationTypes(configuration.getArray(EDITABLE_ANNOTATION_TYPES));
+            }
         }
     }
 
@@ -210,13 +239,17 @@ public class ConfigurationAdapter {
     }
 
     private void configureShowThumbnailBar(String showThumbnailBar) {
-        ThumbnailBarMode thumbnailBarMode = ThumbnailBarMode.THUMBNAIL_BAR_MODE_DEFAULT;
+        ThumbnailBarMode thumbnailBarMode = ThumbnailBarMode.THUMBNAIL_BAR_MODE_FLOATING;
         if (showThumbnailBar.equals(SHOW_THUMBNAIL_BAR_DEFAULT)) {
-            thumbnailBarMode = ThumbnailBarMode.THUMBNAIL_BAR_MODE_DEFAULT;
+            thumbnailBarMode = ThumbnailBarMode.THUMBNAIL_BAR_MODE_FLOATING;
         } else if (showThumbnailBar.equals(SHOW_THUMBNAIL_BAR_SCROLLABLE)) {
             thumbnailBarMode = ThumbnailBarMode.THUMBNAIL_BAR_MODE_SCROLLABLE;
         } else if (showThumbnailBar.equals(SHOW_THUMBNAIL_BAR_NONE)) {
             thumbnailBarMode = ThumbnailBarMode.THUMBNAIL_BAR_MODE_NONE;
+        } else if (showThumbnailBar.equals(SHOW_THUMBNAIL_BAR_FLOATING)) {
+            thumbnailBarMode = ThumbnailBarMode.THUMBNAIL_BAR_MODE_FLOATING;
+        } else if (showThumbnailBar.equals(SHOW_THUMBNAIL_BAR_PINNED)) {
+            thumbnailBarMode = ThumbnailBarMode.THUMBNAIL_BAR_MODE_PINNED;
         }
         configuration.setThumbnailBarMode(thumbnailBarMode);
     }
@@ -271,9 +304,9 @@ public class ConfigurationAdapter {
 
     private void configureShowShareAction(boolean showShareAction) {
         if (showShareAction) {
-            configuration.enableShare();
+            configuration.setEnabledShareFeatures(ShareFeatures.all());
         } else {
-            configuration.disableShare();
+            configuration.setEnabledShareFeatures(ShareFeatures.none());
         }
     }
 
@@ -320,6 +353,47 @@ public class ConfigurationAdapter {
 
     private void configureFirstPageAlwaysSingle(final boolean firstPageAlwaysSingle) {
         configuration.firstPageAlwaysSingle(firstPageAlwaysSingle);
+    }
+
+    private void configureAutosaveEnabled(final boolean autosaveEnabled) {
+        configuration.autosaveEnabled(autosaveEnabled);
+    }
+
+    private void configureAnnotationEditingEnabled(final boolean annotationEditingEnabled) {
+        if (annotationEditingEnabled) {
+            configuration.enableAnnotationEditing();
+        } else {
+            configuration.disableAnnotationEditing();
+        }
+    }
+
+    private void configureEditableAnnotationTypes(@Nullable final ReadableArray editableAnnotationTypes) {
+        if (editableAnnotationTypes == null) {
+            // If explicit null is passed we disable annotation editing.
+            configuration.editableAnnotationTypes(Collections.singletonList(AnnotationType.NONE));
+            return;
+        }
+        List<Object> annotationTypes = editableAnnotationTypes.toArrayList();
+        if (annotationTypes.contains("all")) {
+            // Passing in null enables all annotation types.
+            configuration.editableAnnotationTypes(null);
+            return;
+        }
+
+        // Finally create the actual list of enabled annotation types.
+        List<AnnotationType> parsedTypes = new ArrayList<>();
+        for (Object item : annotationTypes) {
+            String annotationType = item.toString();
+            try {
+                parsedTypes.add(AnnotationType.valueOf(annotationType.toUpperCase(Locale.ENGLISH)));
+            } catch (IllegalArgumentException ex) {
+                Log.e(LOG_TAG,
+                    String.format("Illegal option %s provided for configuration option %s. Skipping this %s.", annotationType, EDITABLE_ANNOTATION_TYPES, annotationType),
+                    ex);
+            }
+        }
+
+        configuration.editableAnnotationTypes(parsedTypes);
     }
 
     public PdfActivityConfiguration build() {

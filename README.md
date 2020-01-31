@@ -6,6 +6,8 @@ This wrapper requires a valid license of PSPDFKit. Licenses are per platform. Yo
 
 This wrapper exposes the most often used APIs from PSPDFKit. Many of our partners end up forking this wrapper and adding some custom code to achieve even greater integration with their products, using native code.
 
+Windows is not currently supported, please use the previous version [1.24.9](https://github.com/PSPDFKit/react-native/releases/tag/1.24.9) instead.
+
 #### Announcements
 
 - [Announcement blog post](https://pspdfkit.com/blog/2016/react-native-module/)
@@ -27,10 +29,10 @@ The [PSPDFKit SDK](https://pspdfkit.com/) is a framework that allows you to view
 
 #### Requirements
 
-- Xcode 10.2.1
-- PSPDFKit 8.4.2 for iOS or later
-- react-native >= 0.60.3
-- CocoaPods >= 1.7.4
+- Xcode 11.3.1
+- PSPDFKit 9.2.0 for iOS or later
+- react-native >= 0.61.5
+- CocoaPods >= 1.8.4
 
 #### Getting Started
 
@@ -41,8 +43,7 @@ Let's create a simple app that integrates PSPDFKit and uses the `react-native-ps
 3. Step into your newly created app folder: `cd YourApp`
 4. Install `react-native-pspdfkit` from GitHub: `yarn add github:PSPDFKit/react-native`
 5. Install all the dependencies for the project: `yarn install`. (Because of a [bug](https://github.com/yarnpkg/yarn/issues/2165) you may need to clean `yarn`'s cache with `yarn cache clean` before.)
-6. Link module `react-native-pspdfkit`: `react-native link react-native-pspdfkit`.
-7. Open `ios/Podile` in a text editor: `open ios/Podfile`, update the platform to iOS 11, and add your CocoaPods URL.
+6. Open `ios/Podile` in a text editor: `open ios/Podfile`, update the platform to iOS 11, and add your CocoaPods URL.
 
 ```diff
 - platform :ios, '9.0'
@@ -76,19 +77,21 @@ target 'YourApp' do
   pod 'glog', :podspec => '../node_modules/react-native/third-party-podspecs/glog.podspec'
   pod 'Folly', :podspec => '../node_modules/react-native/third-party-podspecs/Folly.podspec'
 
-  pod 'react-native-pspdfkit', :path => '../node_modules/react-native-pspdfkit'
++ pod 'react-native-pspdfkit', :path => '../node_modules/react-native-pspdfkit'
 + pod 'PSPDFKit', podspec: 'https://customers.pspdfkit.com/cocoapods/YOUR_COCOAPODS_KEY_GOES_HERE/pspdfkit/latest.podspec'
 
   use_native_modules!
 end
 ```
 
-8. `cd ios` then run `pod install`.
-9. Open `YourApp.xcworkspace` in Xcode: `open YourApp.xcworkspace`.
-10. Make sure the deployment target is set to 11.0 or higher:
+7. `cd ios` then run `pod install`.
+8. Open `YourApp.xcworkspace` in Xcode: `open YourApp.xcworkspace`.
+9. Make sure the deployment target is set to 11.0 or higher:
     ![Deployment Target](screenshots/deployment-target.png)
-11. Change "View controller-based status bar appearance" to `YES` in `Info.plist`:
+10. Change "View controller-based status bar appearance" to `YES` in `Info.plist`:
     ![View Controller-Based Status Bar Appearance](screenshots/view-controller-based-status-bar-appearance.png)
+11. If your application is targeting iOS versions **prior to iOS 12.2** and your application **does not already contain any Swift code**, then you need to make sure Xcode bundles Swift standard libraries with your application distribution. To to so, open your target Build Settings and enable `Always Embed Swift Standard Libraries`:
+	![Always Embed Swift Standard Libraries](screenshots/always-embed-swift-standard-libraries.png)
 12. Add a PDF by drag and dropping it into your Xcode project (Select "Create groups" and add to target "YourApp"). This will add the document to the "Copy Bundle Resources" build phase:
     ![Adding PDF](screenshots/adding-pdf.png)
 13. Replace the default component from `App.js` with a simple touch area to present the bundled PDF. (Note that you can also use a [Native UI Component](#native-ui-component) to show a PDF.)
@@ -253,11 +256,19 @@ Example - Native UI Component:
 
 #### Running Catalog Project
 
-- Copy `PSPDFKit.framework` and `PSPDFKitUI.framework` into the `PSPDFKit` directory.
+- Copy `PSPDFKit.xcframework` and `PSPDFKitUI.xcframework` into the `PSPDFKit` directory.
 - Install dependencies: `yarn install` in `samples/Catalog` directory. (Because of a [bug](https://github.com/yarnpkg/yarn/issues/2165) you may need to clean `yarn`'s cache with `yarn cache clean` before.)
 - Run the app with `react-native-cli`: `react-native run-ios`
 - If you get an error about `config.h` not being found check out [this blog post](https://tuntunir.blogspot.com/2018/02/react-native-fatal-error-configh-file.html) for information on how to fix it.
 
+#### Running on Mac Catalyst
+
+Using PSPDFKit React Native Wrapper on Mac Catalyst is not fully supported yet. We plan on adding full support for Mac Catalyst as soon as React Native and CocoaPods will full support Mac Catalyst. 
+
+For more details, see [why we don't fully support Mac Catalyst yet here](ios/Experimental_Mac_Catalyst_Support.md#why-is-mac-catalyst-not-fully-supported-yet).
+
+If you wish to try the experimental Support for Mac Catalyst, please follow [the instructions here.](ios/Experimental_Mac_Catalyst_Support.md)
+ 
 #### Configuration Mapping
 
 The PSPDFKit React Native iOS Wrapper maps most configuration options available in `PSPDFConfiguration` from JSON. Please refer to [`RCTConvert+PSPDFConfiguration.m`](./ios/RCTPSPDFKit/Converters/RCTConvert+PSPDFConfiguration.m#L267) for the complete list and for the exact naming of enum values.
@@ -305,10 +316,9 @@ For a more detailed description of toolbar customizations, refer to our Customiz
 - Android SDK
 - Android Build Tools 23.0.1 (React Native)
 - Android Build Tools 28.0.3 (PSPDFKit module)
-- Android Gradle plugin >= 3.2.1
-- PSPDFKit >= 5.0.1
-- react-native for example app >= 0.59.2
-- react-native for Catalog app >= 0.57.8
+- Android Gradle plugin >= 3.4.1
+- PSPDFKit >= 5.4.2
+- react-native >= 0.60.4
 
 #### Getting Started
 
@@ -319,15 +329,12 @@ Let's create a simple app that integrates PSPDFKit and uses the react-native-psp
 3. Step into your newly created app folder: `cd YourApp`.
 4. Add `react-native-pspdfkit` module from GitHub: `yarn add github:PSPDFKit/react-native`.
 5. Install all the dependencies for the project: `yarn install`. (Because of a [bug](https://github.com/yarnpkg/yarn/issues/2165) you may need to clean `yarn`'s cache with `yarn cache clean` before.)
-6. Link module `react-native-pspdfkit`: `react-native link react-native-pspdfkit`.
-7. <a id="step-7"></a>Add PSPDFKit repository to `YourApp/android/build.gradle` so PSPDFKit library can be downloaded:
+6. <a id="step-7"></a>Add PSPDFKit repository to `YourApp/android/build.gradle` so PSPDFKit library can be downloaded:
 
 ```diff
  allprojects {
      repositories {
          mavenLocal()
-         google()
-         jcenter()
 +        maven {
 +            url 'https://customers.pspdfkit.com/maven/'
 +            credentials {
@@ -339,11 +346,18 @@ Let's create a simple app that integrates PSPDFKit and uses the react-native-psp
              // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
              url "$rootDir/../node_modules/react-native/android"
          }
+         maven {
+            // Android JSC is installed from npm
+            url("$rootDir/../node_modules/jsc-android/dist")
+         }
+
+         google()
+         jcenter()
      }
  }
 ```
 
-8. PSPDFKit targets modern platforms, so you'll have to set the `minSdkVersion` to 19. In `YourApp/android/build.gradle`:
+7. PSPDFKit targets modern platforms, so you'll have to set the `minSdkVersion` to 19. In `YourApp/android/build.gradle`:
 
 ```diff
 ...
@@ -358,7 +372,7 @@ Let's create a simple app that integrates PSPDFKit and uses the react-native-psp
 ...
 ```
 
-9. We will also need to enable MultiDex support. In `YourApp/android/app/build.gradle`:
+8. We will also need to enable MultiDex support. In `YourApp/android/app/build.gradle`:
 
 ```diff
 ...
@@ -373,7 +387,7 @@ Let's create a simple app that integrates PSPDFKit and uses the react-native-psp
 ...
 ```
 
-10. <a id="step-10"></a>Enter your PSPDFKit license key into `YourApp/android/app/src/main/AndroidManifest.xml` file:
+9. <a id="step-10"></a>Enter your PSPDFKit license key into `YourApp/android/app/src/main/AndroidManifest.xml` file:
 
 ```diff
    <application>
@@ -386,7 +400,7 @@ Let's create a simple app that integrates PSPDFKit and uses the react-native-psp
    </application>
 ```
 
-11. Set primary color. In `YourApp/android/app/src/main/res/values/styles.xml` replace
+10. Set primary color. In `YourApp/android/app/src/main/res/values/styles.xml` replace
 
 ```xml
 <!-- Customize your theme here. -->
@@ -398,16 +412,15 @@ with
 <item name="colorPrimary">#3C97C9</item>
 ```
 
-12. <a id="step-12"></a>Replace the default component from `YourApp/App.js` with a simple touch area to present a PDF document from the local device filesystem:
+11. <a id="step-12"></a>Replace the default component from `YourApp/App.js` with a simple touch area to present a PDF document from the local device filesystem:
 
 ```javascript
 import React, { Component } from "react";
 import {
-  AppRegistry,
   StyleSheet,
   NativeModules,
   Text,
-  TouchableHighlight,
+  TouchableOpacity,
   View,
   PermissionsAndroid
 } from "react-native";
@@ -431,9 +444,9 @@ export default class YourApp extends Component<{}> {
     return (
       <View style={styles.container}>
         <Text>{PSPDFKit.versionString}</Text>
-        <TouchableHighlight onPress={this._onPressButton}>
+        <TouchableOpacity onPress={this._onPressButton}>
           <Text style={styles.text}>Tap to Open Document</Text>
-        </TouchableHighlight>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -470,13 +483,13 @@ const styles = StyleSheet.create({
 });
 ```
 
-13. Before launching the app you need to copy a PDF document onto your development device or emulator.
+12. Before launching the app you need to copy a PDF document onto your development device or emulator.
 
     ```bash
     adb push /path/to/your/document.pdf /sdcard/document.pdf
     ```
 
-14. Your app is now ready to launch. From `YourApp` directory run `react-native run-android`.
+13. Your app is now ready to launch. From `YourApp` directory run `react-native run-android`.
 
     ```bash
     react-native run-android
@@ -513,6 +526,10 @@ const styles = StyleSheet.create({
 ```
 
 5. Catalog app is now ready to launch. From `samples/Catalog` directory run `react-native run-android`.
+
+#### Running the Native Catalog
+
+Take a look at the [instructions to get started here](https://github.com/PSPDFKit/react-native/tree/master/samples/NativeCatalog/README.md).
 
 #### Configuration
 
@@ -650,223 +667,7 @@ Shows the pdf `document` from the local device filesystem, or your app's assets.
 
 ### Windows UWP
 
-#### Requirements
-
-- Visual Studio Community 2017 or greater
-- git
-- cmake
-- yarn
-- PSPDFKit for Windows.vsix (installed)
-- PowerShell
-
-_IMPORTANT_ : `react-native-pspdfkit` for windows does not yet support react-native 0.59.\*. Currently [`react-native-windows`][https://github.com/microsoft/react-native-windows/releases] is not keeping up pace with `react-native`, where the last official release was 0.54.\* and the last RC was 0.57.\*. We have tested and require 0.57.0 to keep version aligned as much as possible.
-
-#### Getting Started
-
-Let's create a simple app that integrates PSPDFKit and uses the react-native-pspdfkit module.
-
-1. Open `PowerShell` as administrator.
-2. Make sure `react-native-cli` is installed: `yarn global add react-native-cli`.
-3. Install Windows Tool for React Native: `yarn add global windows-build-tools`.
-4. Open `x64 Native Tools Command Prompt for VS 2017` program.
-5. Create the app with `react-native init --version=0.57.8 YourApp` in a location of your choice.
-6. Step into your newly created app folder: `cd YourApp`.
-7. Install the Windows helper plugin: `yarn add --dev rnpm-plugin-windows`.
-8. Install `react-native-pspdfkit` from GitHub: `yarn add github:PSPDFKit/react-native#windows-1.11.0`.
-9. Install `react-native-fs` from GitHub: `yarn add react-native-fs`.
-10. Install all modules for Windows: `yarn install`. (Because of a [bug](https://github.com/yarnpkg/yarn/issues/2165) you may need to clean `yarn`'s cache with `yarn cache clean` before.)
-11. Initialize the windows project: `react-native windows`.
-12. Link module `react-native-pspdfkit`: `react-native link react-native-pspdfkit`.
-13. Link module `react-native-fs`: `react-native link react-native-fs`.
-14. Open the Visual Studio solution in `react-native\YourApp\windows`.
-15. Accept and install any required extensions when prompted.
-16. If the settings window opens, click on `Developer` and select `yes`.
-17. Mark `PSPDFKit SDK` and `Visual C++ Runtime` as dependencies for `YourApp`:
-    Right click on `YourApp` -> Add -> Refererece... Click on Projects and tick `ReactNativePSPDFKit`. Click on Universal Windows -> Extensions and tick `PSPDFKit for UWP` and `Visual C++ 2015 Runtime for Universal Windows Platform Apps` then click ok.
-    ![Add References Selection](screenshots/windowsAddReferences.PNG)
-    ![Reference Checkboxes](screenshots/windowsSelectPSPDFKit+UWP.PNG)
-18. Add an application resource to your `Appl.xaml` to reference your License key.
-
-```diff
-<rn:ReactApplication
-    x:Class="Catalog.App"
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:rn="using:ReactNative"
-    RequestedTheme="Light">
-
-+	<Application.Resources>
-+		<ResourceDictionary>
-+			<ResourceDictionary.MergedDictionaries>
-+				<ResourceDictionary Source="License.xaml"/>
-+			</ResourceDictionary.MergedDictionaries>
-+		</ResourceDictionary>
-+	</Application.Resources>
-
-</rn:ReactApplication>
-```
-
-19. Create a new file resource called `License.xaml` with your PSPDFKit license key at the top level of the
-    project. (Replace `ENTER LICENSE KEY HERE` with your key)
-
-```xaml
-<ResourceDictionary
-	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-
-	<x:String x:Key="PSPDFKitLicense">ENTER LICENSE KEY HERE</x:String>
-
-</ResourceDictionary>
-```
-
-20. Change the target SDK of YourApp to >= 10.0.17134 and Min Version to >= 10.0.15063 : Right Click on YourApp -> Properties. Go to
-    Application and change Target Version to >= 10.0.17134 and change Min Version to >= 10.0.15063.
-    ![Change SDK Version](screenshots/changeVersionSDK.png)
-21. Save Changes: File -> Save All
-22. Add the `PSPDFKitView` and `PSPDFKit` module into your `App.windows.js` file, and add a open button to allow the user
-    to navigate the file system.
-
-```javascript
-import React, { Component } from "react";
-import {
-  AppRegistry,
-  StyleSheet,
-  View,
-  Text,
-  NativeModules,
-  Button
-} from "react-native";
-
-var PSPDFKitView = require("react-native-pspdfkit");
-var PSPDFKit = NativeModules.ReactPSPDFKit;
-
-export default class Catalog extends Component<{}> {
-  constructor(props) {
-    super(props);
-  }
-
-  render() {
-    return (
-      <View style={styles.page}>
-        <PSPDFKitView ref="pdfView" style={styles.pdfView} />
-        <View style={styles.footer}>
-          <View style={styles.button}>
-            <Button onPress={() => PSPDFKit.OpenFilePicker()} title="Open" />
-          </View>
-          <Text style={styles.version}>
-            SDK Version : {PSPDFKit.versionString}
-          </Text>
-        </View>
-      </View>
-    );
-  }
-}
-
-var styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    alignItems: "stretch",
-    backgroundColor: "#eee"
-  },
-  pdfView: {
-    flex: 1
-  },
-  button: {
-    width: 100,
-    margin: 20
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center"
-  },
-  version: {
-    color: "#666666",
-    margin: 20
-  }
-});
-```
-
-23. Now run the application on the command line: `react-native run-windows`.
-24. Press Yes when PowerShell wants to run.
-25. Type 'y' when asking if you want to install the certificate.
-
-#### Running Catalog Project
-
-1. Clone the repository. `git clone https://github.com/PSPDFKit/react-native.git`.
-2. From the command promt `cd react-native\samples\Catalog`.
-3. Make sure `react-native-cli` is installed: `yarn global add react-native-cli`.
-4. Downgrade `react-native` package to 0.57.8. Edit `package.json`
-
-```diff
-  "dependencies": {
-    "react-native-pspdfkit": "file:../../",
-    "react": "16.8.3",
--   "react-native": "0.59.9",
-+   "react-native": "0.57.8",
-    "react-native-camera": "2.9.0",
-    "react-native-fs": "2.13.3",
-```
-
-5. run `yarn install`. (Because of a [bug](https://github.com/yarnpkg/yarn/issues/2165) you may need to clean `yarn`'s cache with `yarn cache clean` before.)
-6. Open the UWP catalog solution in `react-native\samples\Catalog\windows`.
-7. Accept and install any required extensions when prompted.
-8. If the settings windows opens, click on `Developer` and selected `yes`.
-9. Create a new file resouce called `License.xaml` with your PSPDFKit license key at the top level of the project. (Replace `ENTER LICENSE KEY HERE` with your key)
-
-```xaml
-	<ResourceDictionary
-		xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-
-	  <x:String x:Key="PSPDFKitLicense">ENTER LICENSE KEY HERE</x:String>
-
-	</ResourceDictionary>
-```
-
-9. From the command prompt run `react-native run-windows`.
-10. Enter `y` to accept the certificate when prompted and allow socket access for reactive when prompted.
-    (Note: On windows yarn does not link correctly, therefore any changes made in the ReactNativePSPDFKit project will have to be manually copied to the `windows` folder at the base of the repo in order to commit changes.)
-
-#### API
-
-##### Constants
-
-The following constants are available on the PSPDFKit export:
-
-- `versionString` (`String`) PSPDFKit version number.
-
-##### `OpenFilePicker() : void`
-
-Opens a file picker for the user to select a pdf from. When the user selects an item it will be displayed in the `<PSPDFKitView>`.
-
-##### `Present(document : string) : void`
-
-Opens a document in the available `<PSPDFKitView>`. If the element is not displayed `Present` will fail. The document has to be accessible by the application, for example needs to be located in the application assets.
-
-```javascript
-PSPDFKit.Present("ms-appx:///Assets/pdf/Business Report.pdf");
-```
-
-#### Theming support
-
-It is possible to theme/customize the PdfView with the use of a CSS file. To do this simple pass a `Uri` within the web context to the instantiated [`PSPDFKitPackage`](https://github.com/PSPDFKit/react-native/blob/master/windows/ReactNativePSPDFKit/ReactNativePSPDFKit/PSPDFKitPackage.cs#L32).
-
-To see this in action, make the following changes in [`samples/Catalog/windows/Catalog/MainReactNativeHost.cs`](https://github.com/PSPDFKit/react-native/blob/master/samples/Catalog/windows/Catalog/MainReactNativeHost.cs) and run the catalog the catalog.
-
-```diff
-protected override List<IReactPackage> Packages => new List<IReactPackage>
-{
-    new MainReactPackage(),
--   new ReactNativePSPDFKit.PSPDFKitPackage(),
-+   new ReactNativePSPDFKit.PSPDFKitPackage(new Uri("ms-appx-web:///Assets/css/greenTheme.css")),
-    new RNFSPackage()
-};
-```
-
-The code above will pass an asset held in the `Catalog` project's `Assets/css` to the web context of PSPDFKit for Windows. The file can then be used to theme the view.
-
-For more information on CSS Customization in PSPDFKit for Windows please refer to [CSS Customization](https://pspdfkit.com/guides/windows/current/customizing-the-interface/css-customization/)
+Windows UWP is not currently supported on `master`, please follow the integration steps on the [`windows-support`](https://github.com/PSPDFKit/react-native/tree/windows-support#windows-uwp) branch.
 
 ## License
 

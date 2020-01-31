@@ -281,9 +281,8 @@ RCT_MULTI_ENUM_CONVERTER(PSPDFDocumentSharingPagesOptions,
 
   SET(doubleTapAction, PSPDFTapAction)
   SET(formElementZoomEnabled, BOOL)
-  SET(scrollOnTapPageEndEnabled, BOOL)
-  SET(scrollOnTapPageEndAnimationEnabled, BOOL)
-  SET(scrollOnTapPageEndMargin, CGFloat)
+  SET(scrollOnEdgeTapEnabled, BOOL)
+  SET(scrollOnEdgeTapMargin, CGFloat)
   SET_PROPERTY(enableTextSelection, textSelectionEnabled, BOOL)
   SET(textSelectionEnabled, BOOL)
   SET(imageSelectionEnabled, BOOL)
@@ -362,7 +361,7 @@ RCT_MULTI_ENUM_CONVERTER(PSPDFDocumentSharingPagesOptions,
     self.searchMode = [RCTConvert BOOL:dictionary[@"inlineSearch"]] ? PSPDFSearchModeInline : PSPDFSearchModeModal;
   }
 
-  if (dictionary[@"enableAnnotationEditing"] && [RCTConvert BOOL:dictionary[@"enableAnnotationEditing"]]) {
+  if (dictionary[@"enableAnnotationEditing"] && ![RCTConvert BOOL:dictionary[@"enableAnnotationEditing"]]) {
     self.editableAnnotationTypes = nil;
   }
 

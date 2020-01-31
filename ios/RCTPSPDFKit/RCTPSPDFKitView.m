@@ -28,7 +28,7 @@
     _pdfController = [[PSPDFViewController alloc] init];
     _pdfController.delegate = self;
     _pdfController.annotationToolbarController.delegate = self;
-    _closeButton = [[UIBarButtonItem alloc] initWithImage:[PSPDFKit imageNamed:@"x"] style:UIBarButtonItemStylePlain target:self action:@selector(closeButtonPressed:)];
+    _closeButton = [[UIBarButtonItem alloc] initWithImage:[PSPDFKitGlobal imageNamed:@"x"] style:UIBarButtonItemStylePlain target:self action:@selector(closeButtonPressed:)];
     
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(annotationChangedNotification:) name:PSPDFAnnotationChangedNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(annotationChangedNotification:) name:PSPDFAnnotationsAddedNotification object:nil];
@@ -36,6 +36,13 @@
   }
   
   return self;
+}
+
+- (void)removeFromSuperview {
+  // When the React Native `PSPDFKitView` in unmounted, we need to dismiss the `PSPDFViewController` to avoid orphan popovers.
+  // See https://github.com/PSPDFKit/react-native/issues/277
+  [self.pdfController dismissViewControllerAnimated:NO completion:NULL];
+  [super removeFromSuperview];
 }
 
 - (void)dealloc {
@@ -112,11 +119,11 @@
 - (BOOL)enterAnnotationCreationMode {
   [self.pdfController setViewMode:PSPDFViewModeDocument animated:YES];
   [self.pdfController.annotationToolbarController updateHostView:nil container:nil viewController:self.pdfController];
-  return [self.pdfController.annotationToolbarController showToolbarAnimated:YES];
+  return [self.pdfController.annotationToolbarController showToolbarAnimated:YES completion:NULL];
 }
 
 - (BOOL)exitCurrentlyActiveMode {
-  return [self.pdfController.annotationToolbarController hideToolbarAnimated:YES];
+  return [self.pdfController.annotationToolbarController hideToolbarAnimated:YES completion:NULL];
 }
 
 - (BOOL)saveCurrentDocumentWithError:(NSError *_Nullable *)error {
@@ -207,7 +214,9 @@
   BOOL success = NO;
   if (data) {
     PSPDFAnnotation *annotation = [PSPDFAnnotation annotationFromInstantJSON:data documentProvider:documentProvider error:error];
-    success = [document addAnnotations:@[annotation] options:nil];
+    if (annotation) {
+      success = [document addAnnotations:@[annotation] options:nil];
+    }
   }
   
   if (!success) {
@@ -245,6 +254,15 @@
   NSData *data = [document generateInstantJSONFromDocumentProvider:documentProvider error:error];
   NSDictionary *annotationsJSON = [NSJSONSerialization JSONObjectWithData:data options:kNilOptions error:error];
   return annotationsJSON;
+}
+
+- (NSDictionary<NSString *, NSArray<NSDictionary *> *> *)getAllAnnotations:(PSPDFAnnotationType)type error:(NSError *_Nullable *)error {
+  PSPDFDocument *document = self.pdfController.document;
+  VALIDATE_DOCUMENT(document, nil)
+
+  NSArray<PSPDFAnnotation *> *annotations = [[document allAnnotationsOfType:type].allValues valueForKeyPath:@"@unionOfArrays.self"];
+  NSArray <NSDictionary *> *annotationsJSON = [RCTConvert instantJSONFromAnnotations:annotations error:error];
+  return @{@"annotations" : annotationsJSON};
 }
 
 - (BOOL)addAnnotations:(id)jsonAnnotations error:(NSError *_Nullable *)error {
@@ -292,35 +310,43 @@
   return @{@"error": @"Failed to get the form field value."};
 }
 
-- (void)setFormFieldValue:(NSString *)value fullyQualifiedName:(NSString *)fullyQualifiedName {
+- (BOOL)setFormFieldValue:(NSString *)value fullyQualifiedName:(NSString *)fullyQualifiedName {
   if (fullyQualifiedName.length == 0) {
     NSLog(@"Invalid fully qualified name.");
-    return;
+    return NO;
   }
   
   PSPDFDocument *document = self.pdfController.document;
-  VALIDATE_DOCUMENT(document)
-  
+  VALIDATE_DOCUMENT(document, NO)
+
+  BOOL success = NO;
   for (PSPDFFormElement *formElement in document.formParser.forms) {
     if ([formElement.fullyQualifiedFieldName isEqualToString:fullyQualifiedName]) {
       if ([formElement isKindOfClass:PSPDFButtonFormElement.class]) {
         if ([value isEqualToString:@"selected"]) {
           [(PSPDFButtonFormElement *)formElement select];
+          success = YES;
         } else if ([value isEqualToString:@"deselected"]) {
           [(PSPDFButtonFormElement *)formElement deselect];
+          success = YES;
         }
       } else if ([formElement isKindOfClass:PSPDFChoiceFormElement.class]) {
         ((PSPDFChoiceFormElement *)formElement).selectedIndices = [NSIndexSet indexSetWithIndex:value.integerValue];
+        success = YES;
       } else if ([formElement isKindOfClass:PSPDFTextFieldFormElement.class]) {
         formElement.contents = value;
+        success = YES;
       } else if ([formElement isKindOfClass:PSPDFSignatureFormElement.class]) {
         NSLog(@"Signature form elements are not supported.");
+        success = NO;
       } else {
         NSLog(@"Unsupported form element.");
+        success = NO;
       }
       break;
     }
   }
+  return success;
 }
 
 #pragma mark - Notifications

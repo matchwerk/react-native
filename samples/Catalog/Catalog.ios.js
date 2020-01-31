@@ -20,7 +20,7 @@ import {
   Modal,
   Dimensions
 } from "react-native";
-import { StackNavigator, NavigationEvents } from "react-navigation";
+import { createStackNavigator, createAppContainer } from "react-navigation";
 const RNFS = require("react-native-fs");
 
 import PSPDFKitView from "react-native-pspdfkit";
@@ -477,7 +477,18 @@ class ManualSave extends Component {
             <Button
               onPress={() => {
                 // Manual Save
-                this.refs.pdfView.saveCurrentDocument();
+                this.refs.pdfView
+                  .saveCurrentDocument()
+                  .then(result => {
+                    if (result) {
+                      alert("Successfully saved current document.");
+                    } else {
+                      alert("Failed to save current document.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
               }}
               title="Save"
             />
@@ -783,6 +794,26 @@ class ProgrammaticAnnotations extends Component {
               title="getAllUnsavedAnnotations"
             />
           </View>
+          <View>
+            <Button
+              onPress={async () => {
+                // Get all annotations annotations from the document.
+                await this.refs.pdfView
+                  .getAllAnnotations()
+                  .then(result => {
+                    if (result) {
+                      alert(JSON.stringify(result));
+                    } else {
+                      alert("Failed to get all annotations.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
+              }}
+              title="getAllAnnotations"
+            />
+          </View>
         </View>
       </View>
     );
@@ -815,24 +846,128 @@ class ProgrammaticFormFilling extends Component {
             <Button
               onPress={() => {
                 // Fill Text Form Fields.
-                this.refs.pdfView.setFormFieldValue("Name_Last", "Appleseed");
-                this.refs.pdfView.setFormFieldValue("Name_First", "John");
-                this.refs.pdfView.setFormFieldValue(
-                  "Address_1",
-                  "1 Infinite Loop"
-                );
-                this.refs.pdfView.setFormFieldValue("City", "Cupertino");
-                this.refs.pdfView.setFormFieldValue("STATE", "CA");
-                this.refs.pdfView.setFormFieldValue("SSN", "123456789");
-                this.refs.pdfView.setFormFieldValue(
-                  "Telephone_Home",
-                  "(123) 456-7890"
-                );
-                this.refs.pdfView.setFormFieldValue("Birthdate", "1/1/1983");
+                this.refs.pdfView
+                  .setFormFieldValue("Name_Last", "Appleseed")
+                  .then(result => {
+                    if (result) {
+                      console.log("Successfully set the form field value.");
+                    } else {
+                      alert("Failed to set form field value.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
+                this.refs.pdfView
+                  .setFormFieldValue("Name_First", "John")
+                  .then(result => {
+                    if (result) {
+                      console.log("Successfully set the form field value.");
+                    } else {
+                      alert("Failed to set form field value.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
+                this.refs.pdfView
+                  .setFormFieldValue("Address_1", "1 Infinite Loop")
+                  .then(result => {
+                    if (result) {
+                      console.log("Successfully set the form field value.");
+                    } else {
+                      alert("Failed to set form field value.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
+                this.refs.pdfView
+                  .setFormFieldValue("City", "Cupertino")
+                  .then(result => {
+                    if (result) {
+                      console.log("Successfully set the form field value.");
+                    } else {
+                      alert("Failed to set form field value.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
+                this.refs.pdfView
+                  .setFormFieldValue("STATE", "CA")
+                  .then(result => {
+                    if (result) {
+                      console.log("Successfully set the form field value.");
+                    } else {
+                      alert("Failed to set form field value.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
+                this.refs.pdfView
+                  .setFormFieldValue("SSN", "123456789")
+                  .then(result => {
+                    if (result) {
+                      console.log("Successfully set the form field value.");
+                    } else {
+                      alert("Failed to set form field value.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
+                this.refs.pdfView
+                  .setFormFieldValue("Telephone_Home", "(123) 456-7890")
+                  .then(result => {
+                    if (result) {
+                      console.log("Successfully set the form field value.");
+                    } else {
+                      alert("Failed to set form field value.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
+                this.refs.pdfView
+                  .setFormFieldValue("Birthdate", "1/1/1983")
+                  .then(result => {
+                    if (result) {
+                      console.log("Successfully set the form field value.");
+                    } else {
+                      alert("Failed to set form field value.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
 
                 // Select a button form elements.
-                this.refs.pdfView.setFormFieldValue("Sex.0", "selected");
-                this.refs.pdfView.setFormFieldValue("PHD", "selected");
+                this.refs.pdfView
+                  .setFormFieldValue("Sex.0", "selected")
+                  .then(result => {
+                    if (result) {
+                      console.log("Successfully set the form field value.");
+                    } else {
+                      alert("Failed to set form field value.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
+                this.refs.pdfView
+                  .setFormFieldValue("PHD", "selected")
+                  .then(result => {
+                    if (result) {
+                      console.log("Successfully set the form field value.");
+                    } else {
+                      alert("Failed to set form field value.");
+                    }
+                  })
+                  .catch(error => {
+                    alert(JSON.stringify(error));
+                  });
               }}
               title="Fill Forms"
             />
@@ -971,42 +1106,44 @@ class Catalog extends Component<{}> {
   };
 }
 
-export default StackNavigator(
-  {
-    Catalog: {
-      screen: Catalog
+export default createAppContainer(
+  createStackNavigator(
+    {
+      Catalog: {
+        screen: Catalog
+      },
+      ConfiguredPDFViewComponent: {
+        screen: ConfiguredPDFViewComponent
+      },
+      EventListeners: {
+        screen: EventListeners
+      },
+      ChangePages: {
+        screen: ChangePages
+      },
+      AnnotationCreationMode: {
+        screen: AnnotationCreationMode
+      },
+      ManualSave: {
+        screen: ManualSave
+      },
+      SplitPDF: {
+        screen: SplitPDF
+      },
+      ProgrammaticAnnotations: {
+        screen: ProgrammaticAnnotations
+      },
+      ProgrammaticFormFilling: {
+        screen: ProgrammaticFormFilling
+      },
+      ToolbarCustomization: {
+        screen: ToolbarCustomization
+      }
     },
-    ConfiguredPDFViewComponent: {
-      screen: ConfiguredPDFViewComponent
-    },
-    EventListeners: {
-      screen: EventListeners
-    },
-    ChangePages: {
-      screen: ChangePages
-    },
-    AnnotationCreationMode: {
-      screen: AnnotationCreationMode
-    },
-    ManualSave: {
-      screen: ManualSave
-    },
-    SplitPDF: {
-      screen: SplitPDF
-    },
-    ProgrammaticAnnotations: {
-      screen: ProgrammaticAnnotations
-    },
-    ProgrammaticFormFilling: {
-      screen: ProgrammaticFormFilling
-    },
-    ToolbarCustomization: {
-      screen: ToolbarCustomization
+    {
+      initialRouteName: "Catalog"
     }
-  },
-  {
-    initialRouteName: "Catalog"
-  }
+  )
 );
 
 var styles = StyleSheet.create({

@@ -20,16 +20,11 @@ import {
   PermissionsAndroid,
   Dimensions
 } from "react-native";
-import { StackNavigator, NavigationEvents } from "react-navigation";
+import { createStackNavigator, createAppContainer } from "react-navigation";
 
 import QRCodeScanner from "react-native-qrcode-scanner";
 
 import PSPDFKitView from "react-native-pspdfkit";
-
-// React Native bug that hopefully will be fixed soon:
-// https://github.com/facebook/react-native/issues/18868
-import { YellowBox } from "react-native";
-YellowBox.ignoreWarnings(["Warning: isMounted(...) is deprecated"]);
 
 const PSPDFKit = NativeModules.PSPDFKit;
 const RNFS = require("react-native-fs");
@@ -51,7 +46,11 @@ const CONFIGURATION = {
   grayScale: true,
   showPageLabels: false,
   pageScrollDirection: "vertical",
-  showThumbnailBar: "scrollable"
+  showThumbnailBar: "scrollable",
+  // Settings this to false will disable all annotation editing
+  enableAnnotationEditing: true,
+  // Only stamps and square annotations will be editable, others can not be selected or otherwise modified.
+  editableAnnotationTypes: ['Stamp', 'Square']
 };
 
 const examples = [
@@ -131,14 +130,6 @@ const examples = [
     description: "Shows how to programatically read and write PDF form values.",
     action: component => {
       component.props.navigation.navigate("PdfViewFormFillingScreen");
-    }
-  },
-  {
-    key: "item9",
-    name: "Split PDF",
-    description: "Show two PDFs side by side by using PSPDFKitView components.",
-    action: component => {
-      component.props.navigation.navigate("PdfViewSplitScreen");
     }
   },
   {
@@ -301,7 +292,7 @@ class PdfViewScreen extends Component<{}> {
     };
   }
 
-  componentWillMount() {
+  componentDidMount() {
     this.props.navigation.setParams({
       handleAnnotationButtonPress: () => {
         if (
@@ -399,63 +390,6 @@ class PdfViewScreen extends Component<{}> {
   }
 }
 
-class PdfViewSplitScreen extends Component<{}> {
-  static navigationOptions = {
-    title: "PDF"
-  };
-
-  constructor(props) {
-    super(props);
-    this.state = { dimensions: undefined };
-  }
-
-  render() {
-    const layoutDirection = this._getOptimalLayoutDirection();
-    return (
-      <View
-        style={{
-          flex: 1,
-          flexDirection: layoutDirection,
-          justifyContent: "center"
-        }}
-        onLayout={this._onLayout}
-      >
-        <PSPDFKitView
-          document="file:///android_asset/Annual Report.pdf"
-          configuration={{
-            backgroundColor: processColor("lightgrey")
-          }}
-          pageIndex={4}
-          fragmentTag="PDF1"
-          style={{ flex: 1, color: pspdfkitColor }}
-        />
-        <PSPDFKitView
-          document="file:///android_asset/Business Report.pdf"
-          configuration={{
-            scrollContinuously: true,
-            pageScrollDirection: "vertical",
-            showThumbnailBar: "none"
-          }}
-          fragmentTag="PDF2"
-          style={{ flex: 1, color: "#9932CC" }}
-        />
-      </View>
-    );
-  }
-
-  _getOptimalLayoutDirection = () => {
-    const width = this.state.dimensions
-      ? this.state.dimensions.width
-      : Dimensions.get("window").width;
-    return width > 450 ? "row" : "column";
-  };
-
-  _onLayout = event => {
-    let { width, height } = event.nativeEvent.layout;
-    this.setState({ dimensions: { width, height } });
-  };
-}
-
 class PdfViewListenersScreen extends Component<{}> {
   static navigationOptions = ({ navigation }) => {
     const params = navigation.state.params || {};
@@ -479,7 +413,7 @@ class PdfViewListenersScreen extends Component<{}> {
     };
   }
 
-  componentWillMount() {
+  componentDidMount() {
     this.props.navigation.setParams({
       handleAnnotationButtonPress: () => {
         if (
@@ -551,7 +485,7 @@ class PdfViewInstantJsonScreen extends Component<{}> {
     };
   }
 
-  componentWillMount() {
+  componentDidMount() {
     this.props.navigation.setParams({
       handleAnnotationButtonPress: () => {
         if (
@@ -572,7 +506,7 @@ class PdfViewInstantJsonScreen extends Component<{}> {
         <PSPDFKitView
           ref="pdfView"
           document="file:///android_asset/Annual Report.pdf"
-          configuration={{}}
+          configuration={{ showThumbnailBar: "pinned" }}
           fragmentTag="PDF1"
           onStateChanged={event => {
             this.setState({
@@ -593,8 +527,8 @@ class PdfViewInstantJsonScreen extends Component<{}> {
           <View>
             <Button
               onPress={() => {
-                // This gets all annotations on the first page.
-                this.refs.pdfView.getAnnotations(0, null).then(annotations => {
+                // This gets all annotations in the document.
+                this.refs.pdfView.getAllAnnotations().then(annotations => {
                   alert(JSON.stringify(annotations));
                 });
               }}
@@ -617,7 +551,7 @@ class PdfViewInstantJsonScreen extends Component<{}> {
                     createdAt: "2018-07-03T13:53:03Z",
                     isDrawnNaturally: false,
                     lineWidth: 5,
-                    name: 'my annotation',
+                    name: "my annotation",
                     lines: {
                       intensities: [[0.5, 0.5, 0.5], [0.5, 0.5, 0.5]],
                       points: [
@@ -717,24 +651,30 @@ class PdfViewFormFillingScreen extends Component<{}> {
             <Button
               onPress={() => {
                 // Fill Text Form Fields.
-                this.refs.pdfView.setFormFieldValue("Name_Last", "Appleseed");
-                this.refs.pdfView.setFormFieldValue("Name_First", "John");
-                this.refs.pdfView.setFormFieldValue(
-                  "Address_1",
-                  "1 Infinite Loop"
-                );
-                this.refs.pdfView.setFormFieldValue("City", "Cupertino");
-                this.refs.pdfView.setFormFieldValue("STATE", "CA");
-                this.refs.pdfView.setFormFieldValue("SSN", "123456789");
-                this.refs.pdfView.setFormFieldValue(
-                  "Telephone_Home",
-                  "(123) 456-7890"
-                );
-                this.refs.pdfView.setFormFieldValue("Birthdate", "1/1/1983");
+                Promise.all(
+                  this.refs.pdfView.setFormFieldValue("Name_Last", "Appleseed"),
+                  this.refs.pdfView.setFormFieldValue("Name_First", "John"),
+                  this.refs.pdfView.setFormFieldValue(
+                    "Address_1",
+                    "1 Infinite Loop"
+                  ),
+                  this.refs.pdfView.setFormFieldValue("City", "Cupertino"),
+                  this.refs.pdfView.setFormFieldValue("STATE", "CA"),
+                  this.refs.pdfView.setFormFieldValue("SSN", "123456789"),
+                  this.refs.pdfView.setFormFieldValue(
+                    "Telephone_Home",
+                    "(123) 456-7890"
+                  ),
+                  this.refs.pdfView.setFormFieldValue("Birthdate", "1/1/1983"),
 
-                // Select a button form elements.
-                this.refs.pdfView.setFormFieldValue("Sex.0", "selected");
-                this.refs.pdfView.setFormFieldValue("PHD", "selected");
+                  // Select a button form elements.
+                  this.refs.pdfView.setFormFieldValue("Sex.0", "selected"),
+                  this.refs.pdfView.setFormFieldValue("PHD", "selected")
+                ).then(result => {
+                  // Called when all form field values were set.
+                  // If you want to fill forms then save the document this is the place to do it.
+                  alert("All forms filled!");
+                });
               }}
               title="Fill Forms"
             />
@@ -803,33 +743,32 @@ class InstantExampleScreen extends Component<{}> {
   }
 }
 
-export default StackNavigator(
-  {
-    Catalog: {
-      screen: CatalogScreen
+export default createAppContainer(
+  createStackNavigator(
+    {
+      Catalog: {
+        screen: CatalogScreen
+      },
+      PdfView: {
+        screen: PdfViewScreen
+      },
+      PdfViewListenersScreen: {
+        screen: PdfViewListenersScreen
+      },
+      PdfViewInstantJsonScreen: {
+        screen: PdfViewInstantJsonScreen
+      },
+      PdfViewFormFillingScreen: {
+        screen: PdfViewFormFillingScreen
+      },
+      InstantExampleScreen: {
+        screen: InstantExampleScreen
+      }
     },
-    PdfView: {
-      screen: PdfViewScreen
-    },
-    PdfViewSplitScreen: {
-      screen: PdfViewSplitScreen
-    },
-    PdfViewListenersScreen: {
-      screen: PdfViewListenersScreen
-    },
-    PdfViewInstantJsonScreen: {
-      screen: PdfViewInstantJsonScreen
-    },
-    PdfViewFormFillingScreen: {
-      screen: PdfViewFormFillingScreen
-    },
-    InstantExampleScreen: {
-      screen: InstantExampleScreen
+    {
+      initialRouteName: "Catalog"
     }
-  },
-  {
-    initialRouteName: "Catalog"
-  }
+  )
 );
 
 var styles = StyleSheet.create({
