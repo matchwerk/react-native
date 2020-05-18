@@ -118,7 +118,7 @@
 
 - (BOOL)enterAnnotationCreationMode {
   [self.pdfController setViewMode:PSPDFViewModeDocument animated:YES];
-  [self.pdfController.annotationToolbarController updateHostView:nil container:nil viewController:self.pdfController];
+  [self.pdfController.annotationToolbarController updateHostView:self container:nil viewController:self.pdfController];
   return [self.pdfController.annotationToolbarController showToolbarAnimated:YES completion:NULL];
 }
 
@@ -285,7 +285,7 @@
     NSLog(@"Failed to add annotations.");
   }
   
-  [self.pdfController reloadPageAtIndex:self.pdfController.pageIndex animated:NO];
+  [self.pdfController reloadData];
   return success;
 }
 

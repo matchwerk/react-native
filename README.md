@@ -18,6 +18,7 @@ Windows is not currently supported, please use the previous version [1.24.9](htt
 - [How to Extend React Native APIs](https://pspdfkit.com/blog/2018/how-to-extend-react-native-api/)
 - [Advanced Techniques for React Native UI Components](https://pspdfkit.com/blog/2018/advanced-techniques-for-react-native-ui-components/)
 - [How to Extend React Native APIs for Windows](https://pspdfkit.com/blog/2019/how-to-extend-react-native-apis-for-windows/)
+- [How to Bridge Native iOS Code to React Native](https://pspdfkit.com/blog/2020/how-to-bridge-native-ios-code-to-react-native/)
 
 #### PSPDFKit
 
@@ -87,11 +88,11 @@ end
 7. `cd ios` then run `pod install`.
 8. Open `YourApp.xcworkspace` in Xcode: `open YourApp.xcworkspace`.
 9. Make sure the deployment target is set to 11.0 or higher:
-    ![Deployment Target](screenshots/deployment-target.png)
+   ![Deployment Target](screenshots/deployment-target.png)
 10. Change "View controller-based status bar appearance" to `YES` in `Info.plist`:
     ![View Controller-Based Status Bar Appearance](screenshots/view-controller-based-status-bar-appearance.png)
 11. If your application is targeting iOS versions **prior to iOS 12.2** and your application **does not already contain any Swift code**, then you need to make sure Xcode bundles Swift standard libraries with your application distribution. To to so, open your target Build Settings and enable `Always Embed Swift Standard Libraries`:
-	![Always Embed Swift Standard Libraries](screenshots/always-embed-swift-standard-libraries.png)
+    ![Always Embed Swift Standard Libraries](screenshots/always-embed-swift-standard-libraries.png)
 12. Add a PDF by drag and dropping it into your Xcode project (Select "Create groups" and add to target "YourApp"). This will add the document to the "Copy Bundle Resources" build phase:
     ![Adding PDF](screenshots/adding-pdf.png)
 13. Replace the default component from `App.js` with a simple touch area to present the bundled PDF. (Note that you can also use a [Native UI Component](#native-ui-component) to show a PDF.)
@@ -261,14 +262,18 @@ Example - Native UI Component:
 - Run the app with `react-native-cli`: `react-native run-ios`
 - If you get an error about `config.h` not being found check out [this blog post](https://tuntunir.blogspot.com/2018/02/react-native-fatal-error-configh-file.html) for information on how to fix it.
 
+#### Running the Native Catalog
+
+Take a look at the [instructions to get started here](/samples/NativeCatalog/README.md#running-this-sample-on-ios).
+
 #### Running on Mac Catalyst
 
-Using PSPDFKit React Native Wrapper on Mac Catalyst is not fully supported yet. We plan on adding full support for Mac Catalyst as soon as React Native and CocoaPods will full support Mac Catalyst. 
+Using PSPDFKit React Native Wrapper on Mac Catalyst is not fully supported yet. We plan on adding full support for Mac Catalyst as soon as React Native and CocoaPods will full support Mac Catalyst.
 
 For more details, see [why we don't fully support Mac Catalyst yet here](ios/Experimental_Mac_Catalyst_Support.md#why-is-mac-catalyst-not-fully-supported-yet).
 
 If you wish to try the experimental Support for Mac Catalyst, please follow [the instructions here.](ios/Experimental_Mac_Catalyst_Support.md)
- 
+
 #### Configuration Mapping
 
 The PSPDFKit React Native iOS Wrapper maps most configuration options available in `PSPDFConfiguration` from JSON. Please refer to [`RCTConvert+PSPDFConfiguration.m`](./ios/RCTPSPDFKit/Converters/RCTConvert+PSPDFConfiguration.m#L267) for the complete list and for the exact naming of enum values.
@@ -308,6 +313,58 @@ Please refer to [`RCTConvert+UIBarButtonItem.m`](./ios/RCTPSPDFKit/Converters/RC
 Also, please take a look at the [ToolbarCustomization example from our Catalog app](./samples/Catalog/Catalog.ios.js#L805).
 
 For a more detailed description of toolbar customizations, refer to our Customizing the Toolbar guide for [iOS](https://pspdfkit.com/guides/ios/current/customizing-the-interface/customizing-the-toolbar/) and [Android](https://pspdfkit.com/guides/android/current/customizing-the-interface/customizing-the-toolbar/).
+
+#### Process Annotations
+
+The PSPDFKit React Native Wrapper allows you to create a new document with processed (embedded, flattenned, removed, or printed) annotations on Android and iOS using the `PSPDFKit.processAnnotations(annotationChange, annotationType, sourceDocumentPath, processedDocumentPath)` function. In the snippet below, we add a button which flattens all the annotations of the document from the currently displayed `PSPDFKitView` in a newly processed PDF file:
+
+```javascript
+<View>
+  <Button
+    onPress={async () => {
+      const processedDocumentPath =
+        RNFS.DocumentDirectoryPath + "/flattened.pdf";
+      // Delete the processed document if it already exists.
+      RNFS.exists(processedDocumentPath)
+        .then(exists => {
+          if (exists) {
+            RNFS.unlink(processedDocumentPath);
+          }
+        })
+        .then(() => {
+          // First, save all annotations in the current document.
+          this.refs.pdfView.saveCurrentDocument().then(success => {
+            if (success) {
+              // Then, flatten all the annotations
+              PSPDFKit.processAnnotations(
+                "flatten",
+                "all",
+                sourceDocumentPath,
+                processedDocumentPath
+              )
+                .then(success => {
+                  if (success) {
+                    // And finally, present the newly processed document with flattened annotations.
+                    PSPDFKit.present(processedDocumentPath, {});
+                  } else {
+                    alert("Failed to embed annotations.");
+                  }
+                })
+                .catch(error => {
+                  alert(JSON.stringify(error));
+                });
+            } else {
+              alert("Failed to save current document.");
+            }
+          });
+        });
+    }}
+    title="Flatten All Annotations"
+  />
+</View>
+```
+
+For a runnable example, please take a look at the [AnnotationProcessing example from our Catalog app](./samples/Catalog/Catalog.ios.js#L1032).
 
 ### Android
 
@@ -529,7 +586,7 @@ const styles = StyleSheet.create({
 
 #### Running the Native Catalog
 
-Take a look at the [instructions to get started here](https://github.com/PSPDFKit/react-native/tree/master/samples/NativeCatalog/README.md).
+Take a look at the [instructions to get started here](/samples/NativeCatalog/README.md#running-this-sample-on-android).
 
 #### Configuration
 

@@ -50,7 +50,7 @@ const CONFIGURATION = {
   // Settings this to false will disable all annotation editing
   enableAnnotationEditing: true,
   // Only stamps and square annotations will be editable, others can not be selected or otherwise modified.
-  editableAnnotationTypes: ['Stamp', 'Square']
+  editableAnnotationTypes: ["Stamp", "Square"]
 };
 
 const examples = [
@@ -59,7 +59,13 @@ const examples = [
     name: "Open assets document",
     description: "Open document from your project assets folder",
     action: () => {
-      PSPDFKit.present("file:///android_asset/Annual Report.pdf", {});
+      PSPDFKit.present("file:///android_asset/Annual Report.pdf", {})
+        .then(loaded => {
+          console.log("Document was loaded successfully.");
+        })
+        .catch(error => {
+          console.log(error);
+        });
       PSPDFKit.setPageIndex(3, false);
     }
   },
@@ -149,6 +155,28 @@ const examples = [
       console.log(PSPDFKit);
       console.log(PSPDFKit.versionString);
       // console.log(NativeModules)
+    }
+  },
+  {
+    key: "item12",
+    name: "Annotation Processing",
+    description:
+      "Shows how to embed, flatten, remove, and print annotations, then present the newly processed document.",
+    action: component => {
+      extractFromAssetsIfMissing("Annual Report.pdf", function() {
+        component.props.navigation.push("AnnotationProcessing");
+      });
+    }
+  },
+  {
+    key: "item13",
+    name: "Hiding Toolbar",
+    description:
+      "Shows how to hide the main toolbar while keeping the thumbnail bar visible.",
+    action: component => {
+      extractFromAssetsIfMissing("Annual Report.pdf", function() {
+        component.props.navigation.push("HidingToolbar");
+      });
     }
   }
 ];
@@ -272,13 +300,8 @@ class PdfViewScreen extends Component<{}> {
     const params = navigation.state.params || {};
 
     return {
-      title: "PDF",
-      headerRight: (
-        <Button
-          onPress={() => params.handleAnnotationButtonPress()}
-          title="Annotations"
-        />
-      )
+      // Since the PSPDFKitView provides it's own toolbar and back button we don't need a header.
+      header: null
     };
   };
 
@@ -323,11 +346,16 @@ class PdfViewScreen extends Component<{}> {
           ref="pdfView"
           document="file:///android_asset/Annual Report.pdf"
           configuration={{
+            toolbarTitle: "My Awesome Report",
             backgroundColor: processColor("lightgrey"),
             showThumbnailBar: "scrollable"
           }}
           pageIndex={this.state.currentPageIndex}
           fragmentTag="PDF1"
+          showNavigationButtonInToolbar={true}
+          onNavigationButtonClicked={event => {
+            this.props.navigation.goBack();
+          }}
           menuItemGrouping={[
             "freetext",
             { key: "markup", items: ["highlight", "underline"] },
@@ -553,7 +581,10 @@ class PdfViewInstantJsonScreen extends Component<{}> {
                     lineWidth: 5,
                     name: "my annotation",
                     lines: {
-                      intensities: [[0.5, 0.5, 0.5], [0.5, 0.5, 0.5]],
+                      intensities: [
+                        [0.5, 0.5, 0.5],
+                        [0.5, 0.5, 0.5]
+                      ],
                       points: [
                         [
                           [92.08633422851562, 101.07916259765625],
@@ -743,6 +774,275 @@ class InstantExampleScreen extends Component<{}> {
   }
 }
 
+class AnnotationProcessing extends Component {
+  render() {
+    return (
+      <View style={{ flex: 1 }}>
+        <PSPDFKitView
+          ref="pdfView"
+          document={DOCUMENT}
+          configuration={{
+            backgroundColor: processColor("lightgrey"),
+            showThumbnailBar: "scrollable"
+          }}
+          disableAutomaticSaving={true}
+          fragmentTag="PDF1"
+          style={{ flex: 1, color: pspdfkitColor }}
+        />
+        <View
+          style={{
+            flexDirection: "row",
+            height: 60,
+            alignItems: "center",
+            padding: 10
+          }}
+        >
+          <View>
+            <Button
+              onPress={async () => {
+                const processedDocumentPath =
+                  RNFS.DocumentDirectoryPath + "/embedded.pdf";
+                // Delete the processed document if it already exists.
+                RNFS.exists(processedDocumentPath)
+                  .then(exists => {
+                    if (exists) {
+                      RNFS.unlink(processedDocumentPath);
+                    }
+                  })
+                  // First, save all annotations in the current document.
+                  .then(() => {
+                    this.refs.pdfView.saveCurrentDocument().then(success => {
+                      if (success) {
+                        // Then, embed all the annotations
+                        PSPDFKit.processAnnotations(
+                          "embed",
+                          "all",
+                          DOCUMENT,
+                          processedDocumentPath
+                        )
+                          .then(success => {
+                            if (success) {
+                              // And finally, present the newly processed document with embedded annotations.
+                              PSPDFKit.present(processedDocumentPath, {});
+                            } else {
+                              alert("Failed to embed annotations.");
+                            }
+                          })
+                          .catch(error => {
+                            alert(JSON.stringify(error));
+                          });
+                      } else {
+                        alert("Failed to save current document.");
+                      }
+                    });
+                  });
+              }}
+              title="Embed"
+            />
+          </View>
+          <View>
+            <Button
+              onPress={async () => {
+                const processedDocumentPath =
+                  RNFS.DocumentDirectoryPath + "/flattened.pdf";
+                // Delete the processed document if it already exists.
+                RNFS.exists(processedDocumentPath)
+                  .then(exists => {
+                    if (exists) {
+                      RNFS.unlink(processedDocumentPath);
+                    }
+                  })
+                  .then(() => {
+                    // First, save all annotations in the current document.
+                    this.refs.pdfView.saveCurrentDocument().then(success => {
+                      if (success) {
+                        // Then, flatten all the annotations
+                        PSPDFKit.processAnnotations(
+                          "flatten",
+                          "all",
+                          DOCUMENT,
+                          processedDocumentPath
+                        )
+                          .then(success => {
+                            if (success) {
+                              // And finally, present the newly processed document with flattened annotations.
+                              PSPDFKit.present(processedDocumentPath, {});
+                            } else {
+                              alert("Failed to embed annotations.");
+                            }
+                          })
+                          .catch(error => {
+                            alert(JSON.stringify(error));
+                          });
+                      } else {
+                        alert("Failed to save current document.");
+                      }
+                    });
+                  });
+              }}
+              title="Flatten"
+            />
+          </View>
+          <View>
+            <Button
+              onPress={async () => {
+                const processedDocumentPath =
+                  RNFS.DocumentDirectoryPath + "/removed.pdf";
+                // Delete the processed document if it already exists.
+                RNFS.exists(processedDocumentPath)
+                  .then(exists => {
+                    if (exists) {
+                      RNFS.unlink(processedDocumentPath);
+                    }
+                  })
+                  .then(() => {
+                    // First, save all annotations in the current document.
+                    this.refs.pdfView.saveCurrentDocument().then(success => {
+                      if (success) {
+                        // Then, remove all the annotations
+                        PSPDFKit.processAnnotations(
+                          "remove",
+                          "all",
+                          DOCUMENT,
+                          processedDocumentPath
+                        )
+                          .then(success => {
+                            if (success) {
+                              // And finally, present the newly processed document with removed annotations.
+                              PSPDFKit.present(processedDocumentPath, {});
+                            } else {
+                              alert("Failed to remove annotations.");
+                            }
+                          })
+                          .catch(error => {
+                            alert(JSON.stringify(error));
+                          });
+                      } else {
+                        alert("Failed to save current document.");
+                      }
+                    });
+                  });
+              }}
+              title="Remove"
+            />
+          </View>
+          <View>
+            <Button
+              onPress={async () => {
+                const processedDocumentPath =
+                  RNFS.DocumentDirectoryPath + "/printed.pdf";
+                // Delete the processed document if it already exists.
+                RNFS.exists(processedDocumentPath)
+                  .then(exists => {
+                    if (exists) {
+                      RNFS.unlink(processedDocumentPath);
+                    }
+                  })
+                  .then(() => {
+                    // First, save all annotations in the current document.
+                    this.refs.pdfView.saveCurrentDocument().then(success => {
+                      if (success) {
+                        // Then, print all the annotations
+                        PSPDFKit.processAnnotations(
+                          "print",
+                          "all",
+                          DOCUMENT,
+                          processedDocumentPath
+                        )
+                          .then(success => {
+                            if (success) {
+                              // And finally, present the newly processed document with printed annotations.
+                              PSPDFKit.present(processedDocumentPath, {});
+                            } else {
+                              alert("Failed to print annotations.");
+                            }
+                          })
+                          .catch(error => {
+                            alert(JSON.stringify(error));
+                          });
+                      } else {
+                        alert("Failed to save current document.");
+                      }
+                    });
+                  });
+              }}
+              title="Print"
+            />
+          </View>
+        </View>
+      </View>
+    );
+  }
+}
+
+class HidingToolbar extends Component {
+  static navigationOptions = ({ navigation }) => {
+    const params = navigation.state.params || {};
+    return {
+      title: "Hidden Toolbar",
+      headerRight: (
+        <Button
+          onPress={() => params.handleAnnotationButtonPress()}
+          title="Annotations"
+        />
+      )
+    };
+  };
+
+  constructor(props) {
+    super(props);
+    this.state = {
+      annotationCreationActive: false,
+      annotationEditingActive: false
+    };
+  }
+
+  componentDidMount() {
+    this.props.navigation.setParams({
+      handleAnnotationButtonPress: () => {
+        if (
+          this.state.annotationCreationActive ||
+          this.state.annotationEditingActive
+        ) {
+          this.refs.pdfView.exitCurrentlyActiveMode();
+        } else {
+          this.refs.pdfView.enterAnnotationCreationMode();
+        }
+      }
+    });
+  }
+
+  render() {
+    return (
+      <View style={{ flex: 1 }}>
+        <PSPDFKitView
+          ref="pdfView"
+          document={DOCUMENT}
+          configuration={{
+            backgroundColor: processColor("lightgrey"),
+            showThumbnailBar: "scrollable",
+            // If you want to hide the toolbar it's essential to also hide the document label overlay.
+            documentLabelEnabled: false,
+            // We want to keep the thumbnail bar always visible, but the automatic mode is also supported with hideDefaultToolbar.
+            userInterfaceViewMode: "alwaysVisible"
+          }}
+          // This will just hide the toolbar, keeping the thumbnail bar visible.
+          hideDefaultToolbar={true}
+          disableAutomaticSaving={true}
+          fragmentTag="PDF1"
+          onStateChanged={event => {
+            this.setState({
+              annotationCreationActive: event.annotationCreationActive,
+              annotationEditingActive: event.annotationEditingActive
+            });
+          }}
+          style={{ flex: 1, color: pspdfkitColor }}
+        />
+      </View>
+    );
+  }
+}
+
 export default createAppContainer(
   createStackNavigator(
     {
@@ -763,6 +1063,12 @@ export default createAppContainer(
       },
       InstantExampleScreen: {
         screen: InstantExampleScreen
+      },
+      AnnotationProcessing: {
+        screen: AnnotationProcessing
+      },
+      HidingToolbar: {
+        screen: HidingToolbar
       }
     },
     {

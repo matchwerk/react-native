@@ -3,7 +3,7 @@
  *
  *   PSPDFKit
  *
- *   Copyright © 2017-2019 PSPDFKit GmbH. All rights reserved.
+ *   Copyright © 2017-2020 PSPDFKit GmbH. All rights reserved.
  *
  *   THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
  *   AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -31,8 +31,6 @@ import com.pspdfkit.configuration.page.PageLayoutMode;
 import com.pspdfkit.configuration.page.PageScrollDirection;
 import com.pspdfkit.configuration.page.PageScrollMode;
 import com.pspdfkit.configuration.sharing.ShareFeatures;
-
-import java.util.EnumSet;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -64,6 +62,7 @@ public class ConfigurationAdapter {
     private static final String SHOW_THUMBNAIL_BAR_NONE = "none";
     private static final String SHOW_THUMBNAIL_GRID_ACTION = "showThumbnailGridAction";
     private static final String SHOW_OUTLINE_ACTION = "showOutlineAction";
+    private static final String SHOW_BOOKMARKS_ACTION = "showBookmarksAction";
     private static final String SHOW_ANNOTATION_LIST_ACTION = "showAnnotationListAction";
     private static final String SHOW_PAGE_NUMBER_OVERLAY = "showPageNumberOverlay";
     private static final String SHOW_PAGE_LABELS = "showPageLabels";
@@ -72,6 +71,7 @@ public class ConfigurationAdapter {
     private static final String START_PAGE = "startPage";
     private static final String ENABLE_ANNOTATION_EDITING = "enableAnnotationEditing";
     private static final String ENABLE_TEXT_SELECTION = "enableTextSelection";
+    private static final String ENABLE_FORM_EDITING = "enableFormEditing";
     private static final String SHOW_SHARE_ACTION = "showShareAction";
     private static final String SHOW_PRINT_ACTION = "showPrintAction";
     private static final String SHOW_DOCUMENT_INFO_VIEW = "showDocumentInfoView";
@@ -84,6 +84,8 @@ public class ConfigurationAdapter {
     private static final String AUTOSAVE_DISABLED = "disableAutomaticSaving";
     private static final String ANNOTATION_EDITING_ENABLED = "enableAnnotationEditing";
     private static final String EDITABLE_ANNOTATION_TYPES = "editableAnnotationTypes";
+    private static final String SHOW_SETTINGS_MENU = "showSettingsMenu";
+    private static final String TOOLBAR_TITLE = "toolbarTitle";
 
     private final PdfActivityConfiguration.Builder configuration;
 
@@ -123,6 +125,9 @@ public class ConfigurationAdapter {
             if (configuration.hasKey(SHOW_OUTLINE_ACTION)) {
                 configureShowOutlineAction(configuration.getBoolean(SHOW_OUTLINE_ACTION));
             }
+            if (configuration.hasKey(SHOW_BOOKMARKS_ACTION)) {
+                configureShowBookmarksAction(configuration.getBoolean(SHOW_BOOKMARKS_ACTION));
+            }
             if (configuration.hasKey(SHOW_ANNOTATION_LIST_ACTION)) {
                 configureShowAnnotationListAction(configuration.getBoolean(SHOW_ANNOTATION_LIST_ACTION));
             }
@@ -140,6 +145,9 @@ public class ConfigurationAdapter {
             }
             if (configuration.hasKey(ENABLE_ANNOTATION_EDITING)) {
                 configureEnableAnnotationEditing(configuration.getBoolean(ENABLE_ANNOTATION_EDITING));
+            }
+            if (configuration.hasKey(ENABLE_FORM_EDITING)) {
+                configureEnableFormEditing(configuration.getBoolean(ENABLE_FORM_EDITING));
             }
             if (configuration.hasKey(SHOW_SHARE_ACTION)) {
                 configureShowShareAction(configuration.getBoolean(SHOW_SHARE_ACTION));
@@ -173,6 +181,12 @@ public class ConfigurationAdapter {
             }
             if (configuration.hasKey(EDITABLE_ANNOTATION_TYPES)) {
                 configureEditableAnnotationTypes(configuration.getArray(EDITABLE_ANNOTATION_TYPES));
+            }
+            if (configuration.hasKey(SHOW_SETTINGS_MENU)) {
+                configureSettingsMenuShown(configuration.getBoolean(SHOW_SETTINGS_MENU));
+            }
+            if (configuration.hasKey(TOOLBAR_TITLE)) {
+                configureToolbarTitle(configuration.getString(TOOLBAR_TITLE));
             }
         }
     }
@@ -270,6 +284,14 @@ public class ConfigurationAdapter {
         }
     }
 
+    private void configureShowBookmarksAction(final boolean showBookmarksAction) {
+        if (showBookmarksAction) {
+            configuration.enableBookmarkList();
+        } else {
+            configuration.disableBookmarkList();
+        }
+    }
+
     private void configureShowAnnotationListAction(boolean showAnnotationListAction) {
         if (showAnnotationListAction) {
             configuration.enableAnnotationList();
@@ -299,6 +321,14 @@ public class ConfigurationAdapter {
             configuration.enableAnnotationEditing();
         } else {
             configuration.disableAnnotationEditing();
+        }
+    }
+
+    private void configureEnableFormEditing(boolean enableFormEditing) {
+        if (enableFormEditing) {
+            configuration.enableFormEditing();
+        } else {
+            configuration.disableFormEditing();
         }
     }
 
@@ -394,6 +424,18 @@ public class ConfigurationAdapter {
         }
 
         configuration.editableAnnotationTypes(parsedTypes);
+    }
+
+    private void configureSettingsMenuShown(final boolean settingsMenuShown) {
+        if (settingsMenuShown) {
+            configuration.showSettingsMenu();
+        } else {
+            configuration.hideSettingsMenu();
+        }
+    }
+
+    private void configureToolbarTitle(@Nullable final String customTitle) {
+        configuration.title(customTitle);
     }
 
     public PdfActivityConfiguration build() {

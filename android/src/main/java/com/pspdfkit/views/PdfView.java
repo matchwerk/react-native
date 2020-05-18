@@ -17,7 +17,6 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.uimanager.events.EventDispatcher;
 import com.pspdfkit.annotations.Annotation;
-import com.pspdfkit.annotations.AnnotationType;
 import com.pspdfkit.configuration.activity.PdfActivityConfiguration;
 import com.pspdfkit.document.PdfDocument;
 import com.pspdfkit.document.PdfDocumentLoader;
@@ -27,20 +26,25 @@ import com.pspdfkit.forms.ChoiceFormElement;
 import com.pspdfkit.forms.ComboBoxFormElement;
 import com.pspdfkit.forms.EditableButtonFormElement;
 import com.pspdfkit.forms.TextFormElement;
+import com.pspdfkit.listeners.OnVisibilityChangedListener;
 import com.pspdfkit.listeners.SimpleDocumentListener;
+import com.pspdfkit.react.R;
 import com.pspdfkit.react.events.PdfViewAnnotationChangedEvent;
 import com.pspdfkit.react.events.PdfViewAnnotationTappedEvent;
 import com.pspdfkit.react.events.PdfViewDataReturnedEvent;
 import com.pspdfkit.react.events.PdfViewDocumentLoadFailedEvent;
 import com.pspdfkit.react.events.PdfViewDocumentSaveFailedEvent;
 import com.pspdfkit.react.events.PdfViewDocumentSavedEvent;
+import com.pspdfkit.react.events.PdfViewNavigationButtonClickedEvent;
 import com.pspdfkit.react.events.PdfViewStateChangedEvent;
 import com.pspdfkit.react.helper.DocumentJsonDataProvider;
 import com.pspdfkit.ui.DocumentDescriptor;
 import com.pspdfkit.ui.PdfFragment;
-import com.pspdfkit.ui.PdfUi;
 import com.pspdfkit.ui.PdfUiFragment;
 import com.pspdfkit.ui.PdfUiFragmentBuilder;
+import com.pspdfkit.ui.search.PdfSearchView;
+import com.pspdfkit.ui.search.PdfSearchViewInline;
+import com.pspdfkit.ui.toolbar.MainToolbar;
 import com.pspdfkit.ui.toolbar.grouping.MenuItemGroupingRule;
 
 import org.json.JSONArray;
@@ -50,7 +54,7 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.EnumSet;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -67,6 +71,8 @@ import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.BehaviorSubject;
+
+import static com.pspdfkit.react.helper.ConversionHelpers.getAnnotationTypeFromString;
 
 /**
  * This view displays a {@link com.pspdfkit.ui.PdfFragment} and all associated toolbars.
@@ -97,10 +103,18 @@ public class PdfView extends FrameLayout {
 
     @Nullable
     private PdfUiFragment fragment;
-    private BehaviorSubject<PdfUiFragment> pdfUiFragmentGetter = BehaviorSubject.create();
+
+    /** We wrap the fragment in a list so we can have a state that encapsulates no element being set. */
+    @NonNull
+    private final BehaviorSubject<List<PdfUiFragment>> pdfUiFragmentGetter = BehaviorSubject.createDefault(Collections.emptyList());
 
     /** An internal id we generate so we can track if fragments found belong to this specific PdfView instance. */
     private int internalId;
+
+    /** We keep track if the navigation button should be shown so we can show it when the inline search view is closed. */
+    private boolean isNavigationButtonShown = false;
+    /** We keep track if the inline search view is shown since we don't want to add a second navigation button while it is shown. */
+    private boolean isSearchViewShown = false;
 
     public PdfView(@NonNull Context context) {
         super(context);
@@ -219,6 +233,39 @@ public class PdfView extends FrameLayout {
         pdfViewModeController.setMenuItemGroupingRule(groupingRule);
     }
 
+    public void setShowNavigationButtonInToolbar(final boolean showNavigationButtonInToolbar) {
+        isNavigationButtonShown = showNavigationButtonInToolbar;
+        pendingFragmentActions.add(getCurrentPdfUiFragment()
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(pdfUiFragment -> {
+                if (!isSearchViewShown) {
+                    ((ReactPdfUiFragment) pdfUiFragment).setShowNavigationButtonInToolbar(showNavigationButtonInToolbar);
+                }
+            }));
+    }
+
+    public void setHideDefaultToolbar(boolean hideDefaultToolbar) {
+        pendingFragmentActions.add(getCurrentPdfUiFragment()
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(pdfUiFragment -> {
+                final View views = pdfUiFragment.getView();
+                if (views != null) {
+                    final ReactMainToolbar mainToolbar = views.findViewById(R.id.pspdf__toolbar_main);
+                    if (hideDefaultToolbar) {
+                        // If hiding the toolbar is requested we force the visibility to gone, this way it will never be shown.
+                        mainToolbar.setForcedVisibility(GONE);
+                    } else {
+                        // To reset we undo our forcing, and if the UI is supposed to be shown right
+                        // now we manually set the visibility to visible so it's immediately shown.
+                        mainToolbar.setForcedVisibility(null);
+                        if (pdfUiFragment.isUserInterfaceVisible()) {
+                            mainToolbar.setVisibility(VISIBLE);
+                        }
+                    }
+                }
+            }));
+    }
+
     private void setupFragment() {
         if (fragmentTag != null && configuration != null && document != null) {
             PdfUiFragment pdfFragment = (PdfUiFragment) fragmentManager.findFragmentByTag(fragmentTag);
@@ -235,11 +282,11 @@ public class PdfView extends FrameLayout {
             if (pdfFragment == null) {
                 pdfFragment = PdfUiFragmentBuilder.fromDocumentDescriptor(getContext(), DocumentDescriptor.fromDocument(document))
                     .configuration(configuration)
-                    .fragmentClass(ConfigurationChangeReportingPdfUiFragment.class)
+                    .fragmentClass(ReactPdfUiFragment.class)
                     .build();
                 // We put our internal id so we can track if this fragment belongs to us, used to handle orphaned fragments after hot reloads.
                 pdfFragment.getArguments().putInt(ARG_ROOT_ID, internalId);
-                prepareFragment(pdfFragment);
+                prepareFragment(pdfFragment, true);
             } else {
                 View fragmentView = pdfFragment.getView();
                 if (pdfFragment.getDocument() != null && !pdfFragment.getDocument().getUid().equals(document.getUid())) {
@@ -249,15 +296,15 @@ public class PdfView extends FrameLayout {
                     // The document changed create a new PdfFragment.
                     pdfFragment = PdfUiFragmentBuilder.fromDocumentDescriptor(getContext(), DocumentDescriptor.fromDocument(document))
                         .configuration(configuration)
-                        .fragmentClass(ConfigurationChangeReportingPdfUiFragment.class)
+                        .fragmentClass(ReactPdfUiFragment.class)
                         .build();
-                    prepareFragment(pdfFragment);
+                    prepareFragment(pdfFragment, true);
                 } else if (fragmentView != null && fragmentView.getParent() != this) {
                     // We only need to detach the fragment if the parent view changed.
                     fragmentManager.beginTransaction()
                         .remove(pdfFragment)
                         .commitNow();
-                    prepareFragment(pdfFragment);
+                    prepareFragment(pdfFragment, true);
                 }
             }
 
@@ -266,23 +313,51 @@ public class PdfView extends FrameLayout {
             }
 
             fragment = pdfFragment;
-            pdfUiFragmentGetter.onNext(fragment);
+            pdfUiFragmentGetter.onNext(Collections.singletonList(pdfFragment));
         }
     }
 
-    private void prepareFragment(final PdfUiFragment pdfUiFragment) {
-        fragmentManager.beginTransaction()
-            .add(pdfUiFragment, fragmentTag)
-            .commitNow();
-        View fragmentView = pdfUiFragment.getView();
-        addView(fragmentView, LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+    private void prepareFragment(final PdfUiFragment pdfUiFragment, final boolean attachFragment) {
+        if (attachFragment) {
+            fragmentManager.beginTransaction()
+                .add(pdfUiFragment, fragmentTag)
+                .commitNow();
+            View fragmentView = pdfUiFragment.getView();
+            addView(fragmentView, LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+        }
 
         pdfUiFragment.setOnContextualToolbarLifecycleListener(pdfViewModeController);
         pdfUiFragment.getPSPDFKitViews().getFormEditingBarView().addOnFormEditingBarLifecycleListener(pdfViewModeController);
-        ((ConfigurationChangeReportingPdfUiFragment) pdfUiFragment).setOnConfigurationChangedListener(() -> {
-            // If the configuration was changed from the UI a new fragment will be created, reattach our listeners.
-            preparePdfFragment(pdfUiFragment.getPdfFragment());
+        ((ReactPdfUiFragment) pdfUiFragment).setReactPdfUiFragmentListener(new ReactPdfUiFragment.ReactPdfUiFragmentListener() {
+            @Override
+            public void onConfigurationChanged(@NonNull PdfUiFragment pdfUiFragment) {
+                // If the configuration was changed from the UI a new fragment will be created, reattach our listeners.
+                prepareFragment(pdfUiFragment, false);
+                // Also notify other places that might want to reattach their listeners.
+                pdfUiFragmentGetter.onNext(Collections.singletonList(pdfUiFragment));
+            }
+
+            @Override
+            public void onNavigationButtonClicked(@NonNull PdfUiFragment pdfUiFragment) {
+                eventDispatcher.dispatchEvent(new PdfViewNavigationButtonClickedEvent(getId()));
+            }
         });
+
+        PdfSearchView searchView = pdfUiFragment.getPSPDFKitViews().getSearchView();
+        if (searchView instanceof PdfSearchViewInline) {
+            // The inline search view provides its own back button hide ours if it becomes visible.
+            searchView.addOnVisibilityChangedListener(new OnVisibilityChangedListener() {
+                @Override
+                public void onShow(@NonNull View view) {
+                    ((ReactPdfUiFragment) pdfUiFragment).setShowNavigationButtonInToolbar(false);
+                }
+
+                @Override
+                public void onHide(@NonNull View view) {
+                    ((ReactPdfUiFragment) pdfUiFragment).setShowNavigationButtonInToolbar(isNavigationButtonShown);
+                }
+            });
+        }
 
         // After attaching the PdfUiFragment we can access the PdfFragment.
         preparePdfFragment(pdfUiFragment.getPdfFragment());
@@ -315,14 +390,14 @@ public class PdfView extends FrameLayout {
             // Clear everything.
             isActive = false;
             document = null;
+
+            pendingFragmentActions.dispose();
+            pendingFragmentActions = new CompositeDisposable();
         }
 
         fragment = null;
 
-        pdfUiFragmentGetter.onComplete();
-        pdfUiFragmentGetter = BehaviorSubject.create();
-        pendingFragmentActions.dispose();
-        pendingFragmentActions = new CompositeDisposable();
+        pdfUiFragmentGetter.onNext(Collections.emptyList());
     }
 
     void manuallyLayoutChildren() {
@@ -396,60 +471,16 @@ public class PdfView extends FrameLayout {
         return getCurrentPdfFragment()
             .map(pdfFragment -> pdfFragment.getDocument())
             .flatMap((Function<PdfDocument, ObservableSource<Annotation>>) pdfDocument ->
-                pdfDocument.getAnnotationProvider().getAllAnnotationsOfTypeAsync(getTypeFromString(type), pageIndex, 1)).toList();
+                pdfDocument.getAnnotationProvider().getAllAnnotationsOfTypeAsync(getAnnotationTypeFromString(type), pageIndex, 1)).toList();
     }
 
     public Single<List<Annotation>> getAllAnnotations(@Nullable final String type) {
         return getCurrentPdfFragment().map(PdfFragment::getDocument)
-            .flatMap(pdfDocument -> pdfDocument.getAnnotationProvider().getAllAnnotationsOfTypeAsync(getTypeFromString(type)))
+            .flatMap(pdfDocument -> pdfDocument.getAnnotationProvider().getAllAnnotationsOfTypeAsync(getAnnotationTypeFromString(type)))
             .toList();
     }
 
-    private EnumSet<AnnotationType> getTypeFromString(@Nullable String type) {
-        if (type == null) {
-            return EnumSet.allOf(AnnotationType.class);
-        }
-        if ("pspdfkit/ink".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.INK);
-        }
-        if ("pspdfkit/link".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.LINK);
-        }
-        if ("pspdfkit/markup/highlight".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.HIGHLIGHT);
-        }
-        if ("pspdfkit/markup/squiggly".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.SQUIGGLY);
-        }
-        if ("pspdfkit/markup/strikeout".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.STRIKEOUT);
-        }
-        if ("pspdfkit/markup/underline".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.UNDERLINE);
-        }
-        if ("pspdfkit/note".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.NOTE);
-        }
-        if ("pspdfkit/shape/ellipse".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.CIRCLE);
-        }
-        if ("pspdfkit/shape/line".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.LINE);
-        }
-        if ("pspdfkit/shape/polygon".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.POLYGON);
-        }
-        if ("pspdfkit/shape/polyline".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.POLYLINE);
-        }
-        if ("pspdfkit/shape/rectangle".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.SQUARE);
-        }
-        if ("pspdfkit/text".equalsIgnoreCase(type)) {
-            return EnumSet.of(AnnotationType.FREETEXT);
-        }
-        return EnumSet.noneOf(AnnotationType.class);
-    }
+
 
     public Disposable addAnnotation(final int requestId, ReadableMap annotation) {
         return getCurrentPdfFragment().map(PdfFragment::getDocument).subscribeOn(Schedulers.io())
@@ -477,7 +508,7 @@ public class PdfView extends FrameLayout {
                     return Observable.empty();
                 }
 
-                return pdfDocument.getAnnotationProvider().getAllAnnotationsOfTypeAsync(getTypeFromString(type), pageIndex, 1)
+                return pdfDocument.getAnnotationProvider().getAllAnnotationsOfTypeAsync(getAnnotationTypeFromString(type), pageIndex, 1)
                     .filter(annotationToFilter -> name.equals(annotationToFilter.getName()))
                     .map(filteredAnnotation -> new Pair<>(filteredAnnotation, pdfDocument));
             })
@@ -622,9 +653,15 @@ public class PdfView extends FrameLayout {
 
     /** Returns the {@link PdfFragment} hosted in the current {@link PdfUiFragment}. */
     private Observable<PdfFragment> getCurrentPdfFragment() {
+        return getPdfFragment()
+            .take(1);
+    }
+
+    /** Returns the {@link PdfUiFragment}. */
+    private Observable<PdfUiFragment> getCurrentPdfUiFragment() {
         return pdfUiFragmentGetter
-            .filter(pdfUiFragment -> pdfUiFragment.getPdfFragment() != null)
-            .map(PdfUiFragment::getPdfFragment)
+            .filter(pdfUiFragments -> !pdfUiFragments.isEmpty())
+            .map(pdfUiFragments -> pdfUiFragments.get(0))
             .take(1);
     }
 
@@ -638,22 +675,19 @@ public class PdfView extends FrameLayout {
     }
 
     /**
-     * This returns {@link PdfFragment} as they become available. If the user changes the view configuration of the fragment is replaced for other reasons a new {@link PdfFragment} is emitted.
+     * This returns {@link PdfFragment} as they become available. If the user changes the view configuration or the fragment is replaced for other reasons a new {@link PdfFragment} is emitted.
      */
     public Observable<PdfFragment> getPdfFragment() {
         return pdfUiFragmentGetter
+            .filter(pdfUiFragments -> !pdfUiFragments.isEmpty())
+            .map(pdfUiFragments -> pdfUiFragments.get(0))
             .filter(pdfUiFragment -> pdfUiFragment.getPdfFragment() != null)
             .map(PdfUiFragment::getPdfFragment);
     }
 
-    /** Returns the current fragment if it is set. */
-    public Maybe<PdfFragment> getFragment() {
-        return pdfUiFragmentGetter.firstElement().map(PdfUi::getPdfFragment);
-    }
-
     /** Returns the event registration map for the default events emitted by the {@link PdfView}. */
     public static  Map<String, Map<String, String>> createDefaultEventRegistrationMap() {
-       return MapBuilder.of(PdfViewStateChangedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onStateChanged"),
+       Map<String , Map<String, String>> map = MapBuilder.of(PdfViewStateChangedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onStateChanged"),
             PdfViewDocumentSavedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onDocumentSaved"),
             PdfViewAnnotationTappedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onAnnotationTapped"),
             PdfViewAnnotationChangedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onAnnotationsChanged"),
@@ -661,5 +695,9 @@ public class PdfView extends FrameLayout {
             PdfViewDocumentSaveFailedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onDocumentSaveFailed"),
             PdfViewDocumentLoadFailedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onDocumentLoadFailed")
         );
+
+       map.put(PdfViewNavigationButtonClickedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onNavigationButtonClicked"));
+
+       return map;
     }
 }

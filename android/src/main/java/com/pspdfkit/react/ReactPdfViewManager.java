@@ -148,6 +148,16 @@ public class ReactPdfViewManager extends ViewGroupManager<PdfView> {
         view.setMenuItemGroupingRule(groupingRule);
     }
 
+    @ReactProp(name = "showNavigationButtonInToolbar")
+    public void setShowNavigationButtonInToolbar(@NonNull final PdfView view, final boolean showNavigationButtonInToolbar) {
+        view.setShowNavigationButtonInToolbar(showNavigationButtonInToolbar);
+    }
+
+    @ReactProp(name= "hideDefaultToolbar")
+    public void setHideDefaultToolbar(@NonNull final PdfView view,final boolean hideDefaultToolbar) {
+        view.setHideDefaultToolbar(hideDefaultToolbar);
+    }
+
     @Nullable
     @Override
     public Map getExportedCustomDirectEventTypeConstants() {
